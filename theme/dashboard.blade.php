@@ -20,7 +20,7 @@
             if (!localStorage.getItem('or_locale')) localStorage.setItem('or_locale', window.__OR_CONFIG__.locale);
         } catch(e) {}
     </script>
-    <script type="module" src="/theme/{{ $theme }}/assets/app.js"></script>
+    <script data-cfasync="false" type="module" src="/theme/{{ $theme }}/assets/app.js"></script>
 </head>
 <body>
     <div id="app"></div>
