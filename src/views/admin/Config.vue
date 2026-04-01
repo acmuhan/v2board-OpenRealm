@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
+import { adminConfigApi } from '../../api/admin'
 
 interface TabDef {
   key: string
@@ -23,35 +24,34 @@ const saved = ref(false)
 const testingMail = ref(false)
 const settingWebhook = ref(false)
 
-// Mock config data, pre-filled
 const config = reactive({
   // Site
-  app_name: 'OpenRealm',
-  app_url: 'https://openrealm.example.com',
-  app_description: '高性能代理面板',
-  logo_url: '/logo.svg',
-  force_https: true,
+  app_name: '',
+  app_url: '',
+  app_description: '',
+  logo_url: '',
+  force_https: false,
   subscribe_url: '',
   // Register
-  email_verify: true,
-  email_whitelist_suffix: 'gmail.com\noutlook.com\nqq.com',
+  email_verify: false,
+  email_whitelist_suffix: '',
   invite_force: false,
-  invite_commission: 10,
-  invite_gen_limit: 5,
+  invite_commission: 0,
+  invite_gen_limit: 0,
   // Email
-  email_host: 'smtp.gmail.com',
+  email_host: '',
   email_port: 465,
-  email_username: 'noreply@example.com',
+  email_username: '',
   email_password: '',
-  email_from: 'noreply@example.com',
+  email_from: '',
   email_template: 'default',
   // Subscribe
   subscribe_path: '',
-  plan_change_enable: true,
-  surplus_enable: true,
+  plan_change_enable: false,
+  surplus_enable: false,
   // Frontend
   frontend_theme: 'OpenRealm',
-  frontend_admin_path: 'admin',
+  frontend_admin_path: '',
   frontend_background_url: '',
   // Telegram
   telegram_bot_enable: false,
@@ -68,13 +68,36 @@ const config = reactive({
 const emailTemplates = ref(['default', 'modern', 'minimal', 'custom'])
 const frontendThemes = ref(['OpenRealm', 'V2Board', 'Starter', 'Custom'])
 
+onMounted(async () => {
+  try {
+    const res = await adminConfigApi.fetch()
+    if (res?.data) {
+      Object.assign(config, res.data)
+    }
+    // Optionally load dynamic template lists
+    const [emailTplRes, themeTplRes] = await Promise.allSettled([
+      adminConfigApi.getEmailTemplate(),
+      adminConfigApi.getThemeTemplate(),
+    ])
+    if (emailTplRes.status === 'fulfilled' && Array.isArray(emailTplRes.value?.data)) {
+      emailTemplates.value = emailTplRes.value.data
+    }
+    if (themeTplRes.status === 'fulfilled' && Array.isArray(themeTplRes.value?.data)) {
+      frontendThemes.value = themeTplRes.value.data
+    }
+  } catch {
+    // config stays at empty defaults if load fails
+  }
+})
+
 async function saveConfig() {
   saving.value = true
   try {
-    // await adminConfigApi.save(config)
-    await new Promise((r) => setTimeout(r, 600))
+    await adminConfigApi.save(config)
     saved.value = true
     setTimeout(() => (saved.value = false), 2500)
+  } catch (e: any) {
+    alert(e?.message || '保存失败，请重试')
   } finally {
     saving.value = false
   }
@@ -83,9 +106,16 @@ async function saveConfig() {
 async function testMail() {
   testingMail.value = true
   try {
-    // await adminConfigApi.testSendMail({ ... })
-    await new Promise((r) => setTimeout(r, 1000))
+    await adminConfigApi.testSendMail({
+      email_host: config.email_host,
+      email_port: config.email_port,
+      email_username: config.email_username,
+      email_password: config.email_password,
+      email_from: config.email_from,
+    })
     alert('测试邮件已发送')
+  } catch (e: any) {
+    alert(e?.message || '发送失败，请检查邮件配置')
   } finally {
     testingMail.value = false
   }
@@ -94,9 +124,10 @@ async function testMail() {
 async function setWebhook() {
   settingWebhook.value = true
   try {
-    // await adminConfigApi.setTelegramWebhook({ ... })
-    await new Promise((r) => setTimeout(r, 800))
+    await adminConfigApi.setTelegramWebhook({ token: config.telegram_bot_token })
     alert('Webhook 设置成功')
+  } catch (e: any) {
+    alert(e?.message || '设置失败，请检查 Bot Token')
   } finally {
     settingWebhook.value = false
   }

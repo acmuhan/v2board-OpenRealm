@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, onMounted, watch } from 'vue'
+import { adminUserApi } from '../../api/admin'
 
 
 // ── Types ──
@@ -22,9 +23,13 @@ const search = ref('')
 const filter = ref('all')
 const page = ref(1)
 const pageSize = 10
+const total = ref(0)
 const showEdit = ref(false)
 const showActions = ref<number | null>(null)
 const editForm = ref<Record<string, any>>({})
+const loading = ref(false)
+const error = ref('')
+const saving = ref(false)
 
 const filterOptions = [
   { value: 'all', label: '全部' },
@@ -33,38 +38,58 @@ const filterOptions = [
   { value: 'banned', label: '已封禁' },
 ]
 
-// ── Mock Data ──
-const users = ref<User[]>([
-  { id: 1, email: 'alice@example.com', plan_id: 1, plan_name: '基础版', balance: 5000, commission_balance: 1200, u: 2147483648, d: 8589934592, transfer_enable: 107374182400, status: 0, expired_at: 1735689600 },
-  { id: 2, email: 'bob@test.io', plan_id: 2, plan_name: '专业版', balance: 12000, commission_balance: 3400, u: 10737418240, d: 32212254720, transfer_enable: 214748364800, status: 0, expired_at: 1743465600 },
-  { id: 3, email: 'charlie@mail.com', plan_id: 1, plan_name: '基础版', balance: 0, commission_balance: 0, u: 536870912, d: 1073741824, transfer_enable: 107374182400, status: 0, expired_at: 1719792000 },
-  { id: 4, email: 'diana@corp.net', plan_id: 3, plan_name: '企业版', balance: 50000, commission_balance: 8900, u: 53687091200, d: 161061273600, transfer_enable: 536870912000, status: 0, expired_at: 1751328000 },
-  { id: 5, email: 'eve@banned.org', plan_id: null, plan_name: '--', balance: 100, commission_balance: 0, u: 0, d: 0, transfer_enable: 0, status: 1, expired_at: null },
-  { id: 6, email: 'frank@demo.dev', plan_id: 2, plan_name: '专业版', balance: 3200, commission_balance: 600, u: 4294967296, d: 12884901888, transfer_enable: 214748364800, status: 0, expired_at: 1740873600 },
-  { id: 7, email: 'grace@web3.xyz', plan_id: 1, plan_name: '基础版', balance: 800, commission_balance: 200, u: 1073741824, d: 3221225472, transfer_enable: 107374182400, status: 0, expired_at: 1722470400 },
-  { id: 8, email: 'henry@pro.cc', plan_id: 3, plan_name: '企业版', balance: 25000, commission_balance: 4500, u: 21474836480, d: 64424509440, transfer_enable: 536870912000, status: 0, expired_at: 1756512000 },
-  { id: 9, email: 'iris@old.com', plan_id: null, plan_name: '--', balance: 0, commission_balance: 0, u: 0, d: 0, transfer_enable: 0, status: 0, expired_at: 1704067200 },
-  { id: 10, email: 'jack@vpn.me', plan_id: 2, plan_name: '专业版', balance: 6800, commission_balance: 1100, u: 8589934592, d: 21474836480, transfer_enable: 214748364800, status: 1, expired_at: 1735689600 },
-])
+// ── Data ──
+const users = ref<User[]>([])
 
-// ── Computed ──
-const filteredUsers = computed(() => {
-  let list = users.value
-  if (search.value) {
-    const q = search.value.toLowerCase()
-    list = list.filter(u => u.email.toLowerCase().includes(q) || String(u.id).includes(q))
+const totalPages = ref(1)
+
+// ── API: Fetch users ──
+async function fetchUsers() {
+  loading.value = true
+  error.value = ''
+  try {
+    const params: Record<string, unknown> = { page: page.value }
+    if (search.value) params.email = search.value
+    if (filter.value !== 'all') params.filter = filter.value
+    const res = await adminUserApi.fetch(params)
+    const body = res.data
+    if (body && body.data) {
+      users.value = body.data
+      total.value = body.total ?? body.data.length
+    } else {
+      users.value = Array.isArray(body) ? body : []
+      total.value = users.value.length
+    }
+    totalPages.value = Math.max(1, Math.ceil(total.value / pageSize))
+  } catch (e: any) {
+    error.value = e?.response?.data?.message || e?.message || '加载用户列表失败'
+    users.value = []
+  } finally {
+    loading.value = false
   }
-  const now = Date.now() / 1000
-  if (filter.value === 'active') list = list.filter(u => u.status === 0 && u.expired_at && u.expired_at > now)
-  else if (filter.value === 'expired') list = list.filter(u => u.status === 0 && (!u.expired_at || u.expired_at <= now))
-  else if (filter.value === 'banned') list = list.filter(u => u.status === 1)
-  return list
+}
+
+onMounted(() => {
+  fetchUsers()
 })
 
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredUsers.value.length / pageSize)))
-const pagedUsers = computed(() => {
-  const start = (page.value - 1) * pageSize
-  return filteredUsers.value.slice(start, start + pageSize)
+// ── Watchers: re-fetch on search/filter/page change ──
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+watch(search, () => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    page.value = 1
+    fetchUsers()
+  }, 400)
+})
+
+watch(filter, () => {
+  page.value = 1
+  fetchUsers()
+})
+
+watch(page, () => {
+  fetchUsers()
 })
 
 // ── Helpers ──
@@ -106,45 +131,125 @@ function openEdit(user: User) {
   showActions.value = null
 }
 
-function saveEdit() {
-  const idx = users.value.findIndex(u => u.id === editForm.value.id)
-  if (idx !== -1) {
-    users.value[idx].email = editForm.value.email
-    users.value[idx].balance = Math.round(editForm.value.balance * 100)
-    users.value[idx].commission_balance = Math.round(editForm.value.commission_balance * 100)
-    users.value[idx].status = editForm.value.banned ? 1 : 0
-    if (editForm.value.expired_at) {
-      users.value[idx].expired_at = new Date(editForm.value.expired_at).getTime() / 1000
+async function saveEdit() {
+  saving.value = true
+  error.value = ''
+  try {
+    const payload: Record<string, unknown> = {
+      id: editForm.value.id,
+      email: editForm.value.email,
+      balance: Math.round(editForm.value.balance * 100),
+      commission_balance: Math.round(editForm.value.commission_balance * 100),
+      plan_id: editForm.value.plan_id,
+      expired_at: editForm.value.expired_at
+        ? Math.floor(new Date(editForm.value.expired_at).getTime() / 1000)
+        : null,
     }
+    if (editForm.value.password) {
+      payload.password = editForm.value.password
+    }
+    await adminUserApi.update(payload)
+    showEdit.value = false
+    await fetchUsers()
+  } catch (e: any) {
+    error.value = e?.response?.data?.message || e?.message || '保存失败'
+  } finally {
+    saving.value = false
   }
-  showEdit.value = false
 }
 
-function banUser(user: User) {
-  user.status = user.status === 1 ? 0 : 1
+async function openAddUser() {
+  editForm.value = {
+    id: 0,
+    email: '',
+    password: '',
+    plan_id: null,
+    balance: 0,
+    commission_balance: 0,
+    expired_at: '',
+    banned: false,
+  }
+  showEdit.value = true
   showActions.value = null
 }
 
-function resetSecret(user: User) {
-  alert(`已重置用户 ${user.email} 的密钥`)
-  showActions.value = null
+async function saveNewUser() {
+  saving.value = true
+  error.value = ''
+  try {
+    const payload: Record<string, unknown> = {
+      email: editForm.value.email,
+      password: editForm.value.password,
+      plan_id: editForm.value.plan_id,
+      balance: Math.round(editForm.value.balance * 100),
+      commission_balance: Math.round(editForm.value.commission_balance * 100),
+    }
+    if (editForm.value.expired_at) {
+      payload.expired_at = Math.floor(new Date(editForm.value.expired_at).getTime() / 1000)
+    }
+    await adminUserApi.generate(payload)
+    showEdit.value = false
+    await fetchUsers()
+  } catch (e: any) {
+    error.value = e?.response?.data?.message || e?.message || '创建用户失败'
+  } finally {
+    saving.value = false
+  }
 }
 
-function deleteUser(id: number) {
-  users.value = users.value.filter(u => u.id !== id)
-  showActions.value = null
+function handleSaveUser() {
+  if (editForm.value.id) {
+    saveEdit()
+  } else {
+    saveNewUser()
+  }
 }
 
-function exportCSV() {
-  const header = 'ID,Email,Plan,Balance,Traffic Used,Traffic Total,Status,Expire\n'
-  const rows = filteredUsers.value.map(u =>
-    `${u.id},${u.email},${u.plan_name},${(u.balance / 100).toFixed(2)},${formatBytes(u.u + u.d)},${formatBytes(u.transfer_enable)},${statusTag(u).text},${formatDate(u.expired_at)}`
-  ).join('\n')
-  const blob = new Blob([header + rows], { type: 'text/csv' })
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = 'users.csv'
-  a.click()
+async function banUser(user: User) {
+  showActions.value = null
+  error.value = ''
+  try {
+    await adminUserApi.ban({ id: user.id })
+    await fetchUsers()
+  } catch (e: any) {
+    error.value = e?.response?.data?.message || e?.message || '操作失败'
+  }
+}
+
+async function resetSecret(user: User) {
+  showActions.value = null
+  error.value = ''
+  try {
+    await adminUserApi.resetSecret({ id: user.id })
+  } catch (e: any) {
+    error.value = e?.response?.data?.message || e?.message || '重置密钥失败'
+  }
+}
+
+async function deleteUser(id: number) {
+  showActions.value = null
+  error.value = ''
+  try {
+    await adminUserApi.delUser({ id })
+    await fetchUsers()
+  } catch (e: any) {
+    error.value = e?.response?.data?.message || e?.message || '删除失败'
+  }
+}
+
+async function exportCSV() {
+  error.value = ''
+  try {
+    const res = await adminUserApi.dumpCSV()
+    const blob = new Blob([res.data], { type: 'text/csv' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = 'users.csv'
+    a.click()
+    URL.revokeObjectURL(a.href)
+  } catch (e: any) {
+    error.value = e?.response?.data?.message || e?.message || '导出失败'
+  }
 }
 
 function toggleActions(id: number) {
@@ -164,14 +269,26 @@ function toggleActions(id: number) {
       </div>
       <div class="bar-right">
         <button class="btn-ghost" @click="exportCSV">导出CSV</button>
-        <button class="btn-gradient" @click="openEdit({ id: 0, email: '', plan_id: null, plan_name: '--', balance: 0, commission_balance: 0, u: 0, d: 0, transfer_enable: 0, status: 0, expired_at: null })">
+        <button class="btn-gradient" @click="openAddUser">
           添加用户
         </button>
       </div>
     </div>
 
+    <!-- Error Banner -->
+    <div v-if="error" class="error-banner stagger-2">
+      <span>{{ error }}</span>
+      <button class="error-dismiss" @click="error = ''">×</button>
+    </div>
+
     <!-- Data Table -->
     <div class="table-wrap stagger-2">
+      <!-- Loading overlay -->
+      <div v-if="loading" class="loading-overlay">
+        <span class="loading-spinner"></span>
+        <span>加载中...</span>
+      </div>
+
       <table class="data-table">
         <thead>
           <tr>
@@ -186,10 +303,10 @@ function toggleActions(id: number) {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(user, idx) in pagedUsers" :key="user.id" :class="`stagger-${idx + 3}`">
+          <tr v-for="(user, idx) in users" :key="user.id" :class="`stagger-${idx + 3}`">
             <td class="col-id">{{ user.id }}</td>
             <td class="col-email">{{ user.email }}</td>
-            <td>{{ user.plan_name }}</td>
+            <td>{{ user.plan_name || '--' }}</td>
             <td class="col-mono">&yen;{{ (user.balance / 100).toFixed(2) }}</td>
             <td class="col-traffic">{{ trafficText(user) }}</td>
             <td><span :class="['or-tag', statusTag(user).cls]">{{ statusTag(user).text }}</span></td>
@@ -214,7 +331,7 @@ function toggleActions(id: number) {
               </div>
             </td>
           </tr>
-          <tr v-if="!pagedUsers.length">
+          <tr v-if="!loading && !users.length">
             <td colspan="8" class="empty-row">暂无数据</td>
           </tr>
         </tbody>
@@ -228,7 +345,7 @@ function toggleActions(id: number) {
       <button class="btn-ghost pg-btn" :disabled="page >= totalPages" @click="page++">下一页</button>
     </div>
 
-    <!-- Edit Modal -->
+    <!-- Edit / Add Modal -->
     <teleport to="body">
       <transition name="fade-slide">
         <div v-if="showEdit" class="modal-overlay" @click.self="showEdit = false">
@@ -237,10 +354,10 @@ function toggleActions(id: number) {
               <h3>{{ editForm.id ? '编辑用户' : '添加用户' }}</h3>
               <button class="modal-close" @click="showEdit = false">&times;</button>
             </div>
-            <form class="modal-body" @submit.prevent="saveEdit">
+            <form class="modal-body" @submit.prevent="handleSaveUser">
               <div class="form-group">
                 <label>邮箱</label>
-                <input v-model="editForm.email" class="or-input" placeholder="user@example.com" />
+                <input v-model="editForm.email" class="or-input" placeholder="" />
               </div>
               <div class="form-group">
                 <label>密码</label>
@@ -249,7 +366,7 @@ function toggleActions(id: number) {
               <div class="form-row">
                 <div class="form-group">
                   <label>套餐 ID</label>
-                  <input v-model.number="editForm.plan_id" type="number" class="or-input" placeholder="Plan ID" />
+                  <input v-model.number="editForm.plan_id" type="number" class="or-input" placeholder="" />
                 </div>
                 <div class="form-group">
                   <label>到期日期</label>
@@ -266,7 +383,7 @@ function toggleActions(id: number) {
                   <input v-model.number="editForm.commission_balance" type="number" step="0.01" class="or-input" />
                 </div>
               </div>
-              <div class="form-group toggle-group">
+              <div v-if="editForm.id" class="form-group toggle-group">
                 <label>封禁状态</label>
                 <button
                   type="button"
@@ -276,9 +393,12 @@ function toggleActions(id: number) {
                   <span class="toggle-knob"></span>
                 </button>
               </div>
+              <div v-if="error" class="form-error">{{ error }}</div>
               <div class="modal-footer">
                 <button type="button" class="btn-ghost" @click="showEdit = false">取消</button>
-                <button type="submit" class="btn-gradient">保存</button>
+                <button type="submit" class="btn-gradient" :disabled="saving">
+                  {{ saving ? '保存中...' : '保存' }}
+                </button>
               </div>
             </form>
           </div>
@@ -327,11 +447,58 @@ function toggleActions(id: number) {
   padding-right: 32px;
 }
 
+// ── Error Banner ──
+.error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  margin-bottom: $gap-md;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: $card-radius-sm;
+  color: var(--danger);
+  font-size: 13px;
+}
+.error-dismiss {
+  background: transparent;
+  color: var(--danger);
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 4px;
+}
+
 // ── Table ──
 .table-wrap {
   overflow-x: auto;
   border-radius: $card-radius;
   border: 1px solid var(--border);
+  position: relative;
+}
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(var(--bg-card-rgb, 10, 14, 26), 0.7);
+  font-size: 13px;
+  color: var(--text-3);
+  border-radius: $card-radius;
+}
+.loading-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 .data-table {
   width: 100%;
@@ -550,6 +717,13 @@ function toggleActions(id: number) {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: $gap-md;
+}
+.form-error {
+  font-size: 12px;
+  color: var(--danger);
+  padding: 6px 10px;
+  background: rgba(239, 68, 68, 0.08);
+  border-radius: 6px;
 }
 .toggle-group {
   flex-direction: row;

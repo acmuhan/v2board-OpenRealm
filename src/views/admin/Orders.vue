@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-
+import { ref, watch, onMounted } from 'vue'
+import { adminOrderApi } from '../../api/admin'
 
 // ── Types ──
 interface Order {
@@ -20,13 +20,29 @@ interface Order {
 }
 
 // ── State ──
-const search = ref('')
-const statusFilter = ref('all')
+const orders = ref<Order[]>([])
+const total = ref(0)
 const page = ref(1)
 const pageSize = 10
+const loading = ref(false)
+const error = ref('')
+const toast = ref('')
+const toastType = ref<'success' | 'error'>('success')
+
+const search = ref('')
+const searchType = ref<'trade_no' | 'email'>('trade_no')
+const statusFilter = ref('all')
+
 const showDetail = ref(false)
 const detailOrder = ref<Order | null>(null)
+const detailLoading = ref(false)
 const showActions = ref<string | null>(null)
+
+// ── Assign Modal ──
+const showAssign = ref(false)
+const assignTradeNo = ref('')
+const assignMethod = ref('')
+const assignLoading = ref(false)
 
 const statusOptions = [
   { value: 'all', label: '全部' },
@@ -59,37 +75,16 @@ const periodMap: Record<string, string> = {
   onetime_price: '一次性',
 }
 
-// ── Mock Data ──
-const orders = ref<Order[]>([
-  { trade_no: 'OR20240101001', user_id: 1, user_email: 'alice@example.com', plan_id: 1, plan_name: '基础版', period: 'month_price', total_amount: 1990, status: 3, commission_status: 1, commission_balance: 199, created_at: 1704067200, paid_at: 1704067500, callback_no: 'PAY_2024010100001' },
-  { trade_no: 'OR20240115002', user_id: 2, user_email: 'bob@test.io', plan_id: 2, plan_name: '专业版', period: 'year_price', total_amount: 29990, status: 3, commission_status: 1, commission_balance: 2999, created_at: 1705276800, paid_at: 1705277100, callback_no: 'PAY_2024011500002' },
-  { trade_no: 'OR20240202003', user_id: 3, user_email: 'charlie@mail.com', plan_id: 1, plan_name: '基础版', period: 'quarter_price', total_amount: 4990, status: 0, commission_status: 0, commission_balance: 0, created_at: 1706832000, paid_at: null, callback_no: null },
-  { trade_no: 'OR20240210004', user_id: 4, user_email: 'diana@corp.net', plan_id: 3, plan_name: '企业版', period: 'year_price', total_amount: 79990, status: 3, commission_status: 1, commission_balance: 7999, created_at: 1707523200, paid_at: 1707523800, callback_no: 'PAY_2024021000004' },
-  { trade_no: 'OR20240225005', user_id: 6, user_email: 'frank@demo.dev', plan_id: 2, plan_name: '专业版', period: 'month_price', total_amount: 3990, status: 2, commission_status: 2, commission_balance: 0, created_at: 1708819200, paid_at: null, callback_no: null },
-  { trade_no: 'OR20240305006', user_id: 7, user_email: 'grace@web3.xyz', plan_id: 1, plan_name: '基础版', period: 'half_year_price', total_amount: 8990, status: 1, commission_status: 0, commission_balance: 899, created_at: 1709596800, paid_at: 1709597200, callback_no: 'PAY_2024030500006' },
-  { trade_no: 'OR20240318007', user_id: 8, user_email: 'henry@pro.cc', plan_id: 3, plan_name: '企业版', period: 'onetime_price', total_amount: 199990, status: 3, commission_status: 1, commission_balance: 19999, created_at: 1710720000, paid_at: 1710720600, callback_no: 'PAY_2024031800007' },
-  { trade_no: 'OR20240401008', user_id: 2, user_email: 'bob@test.io', plan_id: 2, plan_name: '专业版', period: 'month_price', total_amount: 3990, status: 0, commission_status: 0, commission_balance: 0, created_at: 1711929600, paid_at: null, callback_no: null },
-])
+const totalPages = ref(1)
 
-// ── Computed ──
-const filteredOrders = computed(() => {
-  let list = orders.value
-  if (search.value) {
-    const q = search.value.toLowerCase()
-    list = list.filter(o => o.user_email.toLowerCase().includes(q) || o.trade_no.toLowerCase().includes(q))
-  }
-  if (statusFilter.value !== 'all') {
-    const s = parseInt(statusFilter.value)
-    list = list.filter(o => o.status === s)
-  }
-  return list
-})
-
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredOrders.value.length / pageSize)))
-const pagedOrders = computed(() => {
-  const start = (page.value - 1) * pageSize
-  return filteredOrders.value.slice(start, start + pageSize)
-})
+// ── Toast ──
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+function showToast(msg: string, type: 'success' | 'error' = 'success') {
+  toast.value = msg
+  toastType.value = type
+  if (toastTimer) clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => { toast.value = '' }, 3000)
+}
 
 // ── Helpers ──
 function formatDate(ts: number | null) {
@@ -101,48 +96,194 @@ function formatAmount(cents: number) {
   return '\u00a5' + (cents / 100).toFixed(2)
 }
 
+// ── Data Loading ──
+async function loadOrders() {
+  loading.value = true
+  error.value = ''
+  try {
+    const params: Record<string, unknown> = { page: page.value }
+
+    if (statusFilter.value !== 'all') {
+      params.status = parseInt(statusFilter.value)
+    }
+
+    const q = search.value.trim()
+    if (q) {
+      if (searchType.value === 'email') {
+        params.email = q
+      } else {
+        params.trade_no = q
+      }
+    }
+
+    const res = await adminOrderApi.fetch(params)
+    const body = res.data
+    orders.value = body?.data ?? []
+    total.value = body?.total ?? 0
+    totalPages.value = Math.max(1, Math.ceil(total.value / pageSize))
+  } catch (e: unknown) {
+    const msg = (e as { response?: { data?: { message?: string } }; message?: string })
+      ?.response?.data?.message ?? (e as { message?: string })?.message ?? '加载失败'
+    error.value = msg
+  } finally {
+    loading.value = false
+  }
+}
+
+// ── Watchers ──
+watch([statusFilter, searchType], () => {
+  page.value = 1
+  loadOrders()
+})
+
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+watch(search, () => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    page.value = 1
+    loadOrders()
+  }, 400)
+})
+
+watch(page, () => {
+  loadOrders()
+})
+
+// ── Lifecycle ──
+onMounted(() => {
+  loadOrders()
+})
+
 // ── Actions ──
-function markPaid(order: Order) {
-  order.status = 3
-  order.paid_at = Math.floor(Date.now() / 1000)
-  order.commission_status = 1
-  showActions.value = null
-}
-
-function cancelOrder(order: Order) {
-  order.status = 2
-  order.commission_status = 2
-  showActions.value = null
-}
-
-function openDetail(order: Order) {
-  detailOrder.value = order
-  showDetail.value = true
-  showActions.value = null
-}
-
 function toggleActions(tradeNo: string) {
   showActions.value = showActions.value === tradeNo ? null : tradeNo
+}
+
+async function openDetail(order: Order) {
+  showActions.value = null
+  detailLoading.value = true
+  showDetail.value = true
+  detailOrder.value = order
+  try {
+    const res = await adminOrderApi.detail({ trade_no: order.trade_no })
+    detailOrder.value = res.data?.data ?? res.data ?? order
+  } catch {
+    // fall back to row data already set
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+async function markPaid(tradeNo: string) {
+  showActions.value = null
+  try {
+    await adminOrderApi.paid({ trade_no: tradeNo })
+    showToast('已标记为支付成功')
+    showDetail.value = false
+    loadOrders()
+  } catch (e: unknown) {
+    const msg = (e as { response?: { data?: { message?: string } } })
+      ?.response?.data?.message ?? '操作失败'
+    showToast(msg, 'error')
+  }
+}
+
+async function cancelOrder(tradeNo: string) {
+  showActions.value = null
+  try {
+    await adminOrderApi.cancel({ trade_no: tradeNo })
+    showToast('订单已取消')
+    showDetail.value = false
+    loadOrders()
+  } catch (e: unknown) {
+    const msg = (e as { response?: { data?: { message?: string } } })
+      ?.response?.data?.message ?? '操作失败'
+    showToast(msg, 'error')
+  }
+}
+
+function openAssign(tradeNo: string) {
+  showActions.value = null
+  assignTradeNo.value = tradeNo
+  assignMethod.value = ''
+  showAssign.value = true
+}
+
+async function confirmAssign() {
+  if (!assignMethod.value.trim()) return
+  assignLoading.value = true
+  try {
+    await adminOrderApi.assign({ trade_no: assignTradeNo.value, method: assignMethod.value.trim() })
+    showToast('支付方式已分配')
+    showAssign.value = false
+    loadOrders()
+  } catch (e: unknown) {
+    const msg = (e as { response?: { data?: { message?: string } } })
+      ?.response?.data?.message ?? '操作失败'
+    showToast(msg, 'error')
+  } finally {
+    assignLoading.value = false
+  }
+}
+
+function prevPage() {
+  if (page.value > 1) page.value--
+}
+
+function nextPage() {
+  if (page.value < totalPages.value) page.value++
 }
 </script>
 
 <template>
   <div class="admin-orders" @click="showActions = null">
+
+    <!-- Toast -->
+    <transition name="fade-slide">
+      <div v-if="toast" :class="['or-toast', toastType]">{{ toast }}</div>
+    </transition>
+
     <!-- Top Bar -->
     <div class="top-bar stagger-1">
       <div class="bar-left">
-        <input v-model="search" class="or-input search-input" placeholder="搜索邮箱或订单号..." />
+        <div class="search-group">
+          <select v-model="searchType" class="or-input search-type-select">
+            <option value="trade_no">订单号</option>
+            <option value="email">邮箱</option>
+          </select>
+          <input
+            v-model="search"
+            class="or-input search-input"
+            :placeholder="searchType === 'email' ? '搜索用户邮箱...' : '搜索订单号...'"
+          />
+        </div>
         <select v-model="statusFilter" class="or-input filter-select">
           <option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
         </select>
       </div>
       <div class="bar-right">
-        <span class="order-count">共 {{ filteredOrders.length }} 条</span>
+        <span class="order-count">共 {{ total }} 条</span>
       </div>
+    </div>
+
+    <!-- Error Banner -->
+    <div v-if="error" class="error-banner stagger-2">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+        <line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="12" cy="16" r="1" fill="currentColor"/>
+      </svg>
+      {{ error }}
+      <button class="retry-btn" @click="loadOrders">重试</button>
     </div>
 
     <!-- Data Table -->
     <div class="table-wrap stagger-2">
+      <!-- Loading Overlay -->
+      <div v-if="loading" class="loading-overlay">
+        <div class="spinner"></div>
+      </div>
+
       <table class="data-table">
         <thead>
           <tr>
@@ -158,7 +299,7 @@ function toggleActions(tradeNo: string) {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(order, idx) in pagedOrders" :key="order.trade_no" :class="`stagger-${idx + 3}`">
+          <tr v-for="(order, idx) in orders" :key="order.trade_no" :class="`stagger-${idx + 3}`">
             <td class="col-tradeno">{{ order.trade_no }}</td>
             <td class="col-email">{{ order.user_email }}</td>
             <td>{{ order.plan_name }}</td>
@@ -182,16 +323,31 @@ function toggleActions(tradeNo: string) {
                 </button>
                 <transition name="fade-slide">
                   <div v-if="showActions === order.trade_no" class="actions-dropdown" @click.stop>
-                    <button v-if="order.status === 0" @click="markPaid(order)">确认支付</button>
-                    <button v-if="order.status === 0 || order.status === 1" @click="cancelOrder(order)">取消订单</button>
+                    <button v-if="order.status === 0" @click="markPaid(order.trade_no)">确认支付</button>
+                    <button v-if="order.status === 0 || order.status === 1" @click="cancelOrder(order.trade_no)">取消订单</button>
+                    <button v-if="order.status === 0" @click="openAssign(order.trade_no)">分配支付</button>
                     <button @click="openDetail(order)">查看详情</button>
                   </div>
                 </transition>
               </div>
             </td>
           </tr>
-          <tr v-if="!pagedOrders.length">
-            <td colspan="9" class="empty-row">暂无数据</td>
+
+          <!-- Empty State -->
+          <tr v-if="!loading && !error && orders.length === 0">
+            <td colspan="9" class="empty-row">
+              <div class="empty-state">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" opacity="0.3">
+                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                <p>暂无订单数据</p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Loading placeholder rows -->
+          <tr v-if="loading && orders.length === 0" v-for="n in 5" :key="`sk-${n}`" class="skeleton-row">
+            <td colspan="9"><div class="skeleton-bar"></div></td>
           </tr>
         </tbody>
       </table>
@@ -199,9 +355,9 @@ function toggleActions(tradeNo: string) {
 
     <!-- Pagination -->
     <div class="pagination stagger-10">
-      <button class="btn-ghost pg-btn" :disabled="page <= 1" @click="page--">上一页</button>
+      <button class="btn-ghost pg-btn" :disabled="page <= 1 || loading" @click="prevPage">上一页</button>
       <span class="pg-info">{{ page }} / {{ totalPages }}</span>
-      <button class="btn-ghost pg-btn" :disabled="page >= totalPages" @click="page++">下一页</button>
+      <button class="btn-ghost pg-btn" :disabled="page >= totalPages || loading" @click="nextPage">下一页</button>
     </div>
 
     <!-- Detail Modal -->
@@ -214,88 +370,136 @@ function toggleActions(tradeNo: string) {
               <button class="modal-close" @click="showDetail = false">&times;</button>
             </div>
             <div class="modal-body">
-              <!-- Order Info -->
-              <div class="detail-section">
-                <div class="detail-title">基本信息</div>
-                <div class="detail-grid">
-                  <div class="detail-item">
-                    <span class="detail-label">订单号</span>
-                    <span class="detail-value mono">{{ detailOrder.trade_no }}</span>
-                  </div>
-                  <div class="detail-item">
-                    <span class="detail-label">用户邮箱</span>
-                    <span class="detail-value">{{ detailOrder.user_email }}</span>
-                  </div>
-                  <div class="detail-item">
-                    <span class="detail-label">套餐</span>
-                    <span class="detail-value">{{ detailOrder.plan_name }}</span>
-                  </div>
-                  <div class="detail-item">
-                    <span class="detail-label">周期</span>
-                    <span class="detail-value">{{ periodMap[detailOrder.period] || detailOrder.period }}</span>
-                  </div>
-                  <div class="detail-item">
-                    <span class="detail-label">金额</span>
-                    <span class="detail-value mono highlight">{{ formatAmount(detailOrder.total_amount) }}</span>
-                  </div>
-                  <div class="detail-item">
-                    <span class="detail-label">状态</span>
-                    <span :class="['or-tag', statusMap[detailOrder.status]?.cls || 'info']">
-                      {{ statusMap[detailOrder.status]?.text || '未知' }}
-                    </span>
-                  </div>
-                </div>
+              <div v-if="detailLoading" class="detail-loading">
+                <div class="spinner"></div>
               </div>
 
-              <!-- Time Info -->
-              <div class="detail-section">
-                <div class="detail-title">时间信息</div>
-                <div class="detail-grid">
-                  <div class="detail-item">
-                    <span class="detail-label">创建时间</span>
-                    <span class="detail-value mono">{{ formatDate(detailOrder.created_at) }}</span>
-                  </div>
-                  <div class="detail-item">
-                    <span class="detail-label">支付时间</span>
-                    <span class="detail-value mono">{{ formatDate(detailOrder.paid_at) }}</span>
-                  </div>
-                  <div class="detail-item">
-                    <span class="detail-label">回调单号</span>
-                    <span class="detail-value mono">{{ detailOrder.callback_no || '--' }}</span>
+              <template v-else>
+                <!-- Order Info -->
+                <div class="detail-section">
+                  <div class="detail-title">基本信息</div>
+                  <div class="detail-grid">
+                    <div class="detail-item">
+                      <span class="detail-label">订单号</span>
+                      <span class="detail-value mono">{{ detailOrder.trade_no }}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">用户邮箱</span>
+                      <span class="detail-value">{{ detailOrder.user_email }}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">套餐</span>
+                      <span class="detail-value">{{ detailOrder.plan_name }}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">周期</span>
+                      <span class="detail-value">{{ periodMap[detailOrder.period] || detailOrder.period }}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">金额</span>
+                      <span class="detail-value mono highlight">{{ formatAmount(detailOrder.total_amount) }}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">状态</span>
+                      <span :class="['or-tag', statusMap[detailOrder.status]?.cls || 'info']">
+                        {{ statusMap[detailOrder.status]?.text || '未知' }}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <!-- Commission Log -->
-              <div class="detail-section">
-                <div class="detail-title">佣金记录</div>
-                <div class="commission-card">
-                  <div class="comm-row">
-                    <span class="comm-label">佣金金额</span>
-                    <span class="comm-value mono">{{ detailOrder.commission_balance ? formatAmount(detailOrder.commission_balance) : '--' }}</span>
-                  </div>
-                  <div class="comm-row">
-                    <span class="comm-label">佣金状态</span>
-                    <span :class="['or-tag', commissionStatusMap[detailOrder.commission_status]?.cls || 'info']">
-                      {{ commissionStatusMap[detailOrder.commission_status]?.text || '未知' }}
-                    </span>
+                <!-- Time Info -->
+                <div class="detail-section">
+                  <div class="detail-title">时间信息</div>
+                  <div class="detail-grid">
+                    <div class="detail-item">
+                      <span class="detail-label">创建时间</span>
+                      <span class="detail-value mono">{{ formatDate(detailOrder.created_at) }}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">支付时间</span>
+                      <span class="detail-value mono">{{ formatDate(detailOrder.paid_at) }}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">回调单号</span>
+                      <span class="detail-value mono">{{ detailOrder.callback_no || '--' }}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <!-- Modal Actions -->
+                <!-- Commission Log -->
+                <div class="detail-section">
+                  <div class="detail-title">佣金记录</div>
+                  <div class="commission-card">
+                    <div class="comm-row">
+                      <span class="comm-label">佣金金额</span>
+                      <span class="comm-value mono">{{ detailOrder.commission_balance ? formatAmount(detailOrder.commission_balance) : '--' }}</span>
+                    </div>
+                    <div class="comm-row">
+                      <span class="comm-label">佣金状态</span>
+                      <span :class="['or-tag', commissionStatusMap[detailOrder.commission_status]?.cls || 'info']">
+                        {{ commissionStatusMap[detailOrder.commission_status]?.text || '未知' }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Modal Actions -->
+                <div class="modal-footer">
+                  <button
+                    v-if="detailOrder.status === 0"
+                    class="btn-gradient"
+                    @click="markPaid(detailOrder.trade_no)"
+                  >确认支付</button>
+                  <button
+                    v-if="detailOrder.status === 0"
+                    class="btn-ghost"
+                    @click="openAssign(detailOrder.trade_no); showDetail = false"
+                  >分配支付</button>
+                  <button
+                    v-if="detailOrder.status === 0 || detailOrder.status === 1"
+                    class="btn-ghost danger-text"
+                    @click="cancelOrder(detailOrder.trade_no)"
+                  >取消订单</button>
+                  <button class="btn-ghost" @click="showDetail = false">关闭</button>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </transition>
+    </teleport>
+
+    <!-- Assign Modal -->
+    <teleport to="body">
+      <transition name="fade-slide">
+        <div v-if="showAssign" class="modal-overlay" @click.self="showAssign = false">
+          <div class="modal-card card modal-sm">
+            <div class="modal-header">
+              <h3>分配支付方式</h3>
+              <button class="modal-close" @click="showAssign = false">&times;</button>
+            </div>
+            <div class="modal-body">
+              <div class="detail-section">
+                <div class="detail-item">
+                  <span class="detail-label">订单号</span>
+                  <span class="detail-value mono">{{ assignTradeNo }}</span>
+                </div>
+              </div>
+              <div class="assign-field">
+                <label class="detail-label">支付方式</label>
+                <input
+                  v-model="assignMethod"
+                  class="or-input"
+                  placeholder="输入支付方式标识，例如 alipay"
+                  @keyup.enter="confirmAssign"
+                />
+              </div>
               <div class="modal-footer">
-                <button
-                  v-if="detailOrder.status === 0"
-                  class="btn-gradient"
-                  @click="markPaid(detailOrder); showDetail = false"
-                >确认支付</button>
-                <button
-                  v-if="detailOrder.status === 0 || detailOrder.status === 1"
-                  class="btn-ghost danger-text"
-                  @click="cancelOrder(detailOrder); showDetail = false"
-                >取消订单</button>
-                <button class="btn-ghost" @click="showDetail = false">关闭</button>
+                <button class="btn-gradient" :disabled="!assignMethod.trim() || assignLoading" @click="confirmAssign">
+                  {{ assignLoading ? '提交中...' : '确认分配' }}
+                </button>
+                <button class="btn-ghost" @click="showAssign = false">取消</button>
               </div>
             </div>
           </div>
@@ -310,6 +514,62 @@ function toggleActions(tradeNo: string) {
 
 .admin-orders {
   max-width: 1200px;
+  position: relative;
+}
+
+// ── Toast ──
+.or-toast {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 9999;
+  padding: 10px 18px;
+  border-radius: $card-radius-sm;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  pointer-events: none;
+
+  &.success {
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    color: #22c55e;
+  }
+
+  &.error {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+  }
+}
+
+// ── Error Banner ──
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: $gap-sm;
+  padding: 10px 14px;
+  margin-bottom: $gap-md;
+  border-radius: $card-radius-sm;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #ef4444;
+  font-size: 13px;
+}
+.retry-btn {
+  margin-left: auto;
+  font-size: 12px;
+  padding: 4px 10px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  color: #ef4444;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    background: rgba(239, 68, 68, 0.25);
+  }
 }
 
 // ── Top Bar ──
@@ -336,8 +596,28 @@ function toggleActions(tradeNo: string) {
   color: var(--text-3);
   font-family: 'JetBrains Mono', monospace;
 }
+.search-group {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  max-width: 380px;
+}
+.search-type-select {
+  max-width: 90px;
+  border-radius: $card-radius-sm $card-radius-sm 0 0;
+  border-right: none;
+  appearance: none;
+  cursor: pointer;
+  flex-shrink: 0;
+
+  @media (min-width: $bp-mobile) {
+    border-radius: $card-radius-sm 0 0 $card-radius-sm;
+  }
+}
 .search-input {
-  max-width: 300px;
+  flex: 1;
+  min-width: 0;
+  border-radius: 0 $card-radius-sm $card-radius-sm 0;
 }
 .filter-select {
   max-width: 140px;
@@ -354,7 +634,33 @@ function toggleActions(tradeNo: string) {
   overflow-x: auto;
   border-radius: $card-radius;
   border: 1px solid var(--border);
+  position: relative;
 }
+
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background: rgba(var(--bg-card-rgb, 0, 0, 0), 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: $card-radius;
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border);
+  border-top-color: var(--brand-light);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -420,6 +726,31 @@ function toggleActions(tradeNo: string) {
   text-align: center;
   padding: 40px 14px !important;
   color: var(--text-3) !important;
+}
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-3);
+  font-size: 14px;
+
+  p { margin: 0; }
+}
+.skeleton-row td {
+  padding: 14px !important;
+}
+.skeleton-bar {
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--border) 25%, var(--bg-2) 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite;
+  opacity: 0.6;
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
 }
 
 // ── Actions Dropdown ──
@@ -514,6 +845,10 @@ function toggleActions(tradeNo: string) {
   max-height: 90vh;
   overflow-y: auto;
   padding: 0;
+
+  &.modal-sm {
+    max-width: 400px;
+  }
 }
 .modal-header {
   display: flex;
@@ -548,6 +883,11 @@ function toggleActions(tradeNo: string) {
   display: flex;
   flex-direction: column;
   gap: $gap-lg;
+}
+.detail-loading {
+  display: flex;
+  justify-content: center;
+  padding: $gap-lg 0;
 }
 
 // ── Detail Sections ──
@@ -590,6 +930,17 @@ function toggleActions(tradeNo: string) {
   &.highlight {
     color: var(--brand-light);
     font-weight: 700;
+  }
+}
+
+// ── Assign Field ──
+.assign-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  .or-input {
+    width: 100%;
   }
 }
 
@@ -647,7 +998,19 @@ function toggleActions(tradeNo: string) {
   .bar-left {
     flex-direction: column;
   }
-  .search-input,
+  .search-group {
+    max-width: 100%;
+    flex-direction: column;
+  }
+  .search-type-select {
+    max-width: 100%;
+    border-radius: $card-radius-sm $card-radius-sm 0 0;
+    border-right: 1px solid var(--border);
+    border-bottom: none;
+  }
+  .search-input {
+    border-radius: 0 0 $card-radius-sm $card-radius-sm;
+  }
   .filter-select {
     max-width: 100%;
   }

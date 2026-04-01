@@ -89,20 +89,6 @@ onMounted(() => {
           </div>
         </div>
 
-        <div class="stats-row stagger-6">
-          <div class="stat-pill">
-            <span class="stat-num">99.9%</span>
-            <span class="stat-txt">在线率</span>
-          </div>
-          <div class="stat-pill">
-            <span class="stat-num">50+</span>
-            <span class="stat-txt">节点</span>
-          </div>
-          <div class="stat-pill">
-            <span class="stat-num">0ms</span>
-            <span class="stat-txt">延迟</span>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -212,23 +198,6 @@ onMounted(() => {
   width: 6px; height: 6px; border-radius: 50%;
   background: var(--accent); box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.5); flex-shrink: 0;
 }
-
-// Stats row
-.stats-row { display: flex; gap: $gap-sm; }
-.stat-pill {
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  padding: 10px 16px; border-radius: 10px;
-  background: rgba(var(--brand-rgb), 0.06);
-  border: 1px solid rgba(var(--brand-rgb), 0.1);
-}
-.stat-num {
-  font-size: 16px; font-weight: 700;
-  font-family: 'Space Grotesk', sans-serif;
-  background: var(--grad-brand);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-.stat-txt { font-size: 10px; color: var(--text-3); font-weight: 600; letter-spacing: 0.5px; }
 
 // Right panel
 .auth-right { flex: 1; display: flex; align-items: center; justify-content: center; padding: 48px; }

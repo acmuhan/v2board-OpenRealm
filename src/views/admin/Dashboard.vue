@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { adminStatApi } from '../../api/admin'
+import { adminStatApi, adminOrderApi } from '../../api/admin'
 
 // ── Stat cards ──────────────────────────────
 interface OverrideStats {
@@ -13,35 +13,10 @@ interface OverrideStats {
   today_commission: number
 }
 
-const stats = ref<OverrideStats>({
-  online_count: 0,
-  today_income: 0,
-  month_income: 0,
-  pending_tickets: 0,
-  total_users: 0,
-  today_register: 0,
-  today_commission: 0,
-})
-
-const mockStats: OverrideStats = {
-  online_count: 1284,
-  today_income: 328600,
-  month_income: 12689400,
-  pending_tickets: 7,
-  total_users: 38420,
-  today_register: 156,
-  today_commission: 42300,
-}
+const stats = ref<OverrideStats | null>(null)
 
 // ── Revenue chart (31 days) ────────────────
 const revenueData = ref<number[]>([])
-const mockRevenue = [
-  3280, 4150, 5920, 3680, 6240, 7100, 4830,
-  5560, 8210, 6930, 7450, 9120, 8340, 6780,
-  5100, 7890, 9540, 10230, 8760, 7340, 6510,
-  8900, 11200, 9870, 10560, 8430, 7210, 9640,
-  12380, 11050, 9280,
-]
 const chartMax = computed(() => Math.max(...revenueData.value, 1))
 const chartDays = computed(() =>
   revenueData.value.map((_, i) => {
@@ -70,22 +45,6 @@ interface UserRank {
 const serverRank = ref<ServerRank[]>([])
 const userRank = ref<UserRank[]>([])
 
-const mockServerRank: ServerRank[] = [
-  { server_name: 'Tokyo-BGP-01', server_type: 'vmess', u: 1284000000, d: 8562000000, total: 9846000000 },
-  { server_name: 'Singapore-IPLC-02', server_type: 'trojan', u: 982000000, d: 7234000000, total: 8216000000 },
-  { server_name: 'HongKong-CN2-03', server_type: 'vless', u: 856000000, d: 6120000000, total: 6976000000 },
-  { server_name: 'US-SJC-04', server_type: 'hysteria', u: 623000000, d: 5430000000, total: 6053000000 },
-  { server_name: 'Seoul-Premium-05', server_type: 'shadowsocks', u: 540000000, d: 4210000000, total: 4750000000 },
-]
-
-const mockUserRank: UserRank[] = [
-  { user_id: 1042, email: 'alex***@gmail.com', u: 356000000, d: 2840000000, total: 3196000000 },
-  { user_id: 2891, email: 'john***@outlook.com', u: 298000000, d: 2560000000, total: 2858000000 },
-  { user_id: 539, email: 'test***@qq.com', u: 245000000, d: 1890000000, total: 2135000000 },
-  { user_id: 4120, email: 'wang***@163.com', u: 198000000, d: 1560000000, total: 1758000000 },
-  { user_id: 782, email: 'dev***@proton.me', u: 156000000, d: 1230000000, total: 1386000000 },
-]
-
 // ── Recent orders ──────────────────────────
 interface RecentOrder {
   trade_no: string
@@ -98,15 +57,6 @@ interface RecentOrder {
 }
 
 const recentOrders = ref<RecentOrder[]>([])
-
-const mockOrders: RecentOrder[] = [
-  { trade_no: 'OR202604011234', email: 'alex***@gmail.com', plan_name: 'Premium', cycle: 'month_price', total_amount: 9800, status: 3, created_at: Date.now() / 1000 - 120 },
-  { trade_no: 'OR202604011233', email: 'john***@outlook.com', plan_name: 'Pro', cycle: 'quarter_price', total_amount: 24800, status: 3, created_at: Date.now() / 1000 - 480 },
-  { trade_no: 'OR202604011232', email: 'wang***@163.com', plan_name: 'Basic', cycle: 'month_price', total_amount: 2900, status: 0, created_at: Date.now() / 1000 - 960 },
-  { trade_no: 'OR202604011231', email: 'test***@qq.com', plan_name: 'Premium', cycle: 'year_price', total_amount: 88800, status: 3, created_at: Date.now() / 1000 - 1800 },
-  { trade_no: 'OR202604011230', email: 'dev***@proton.me', plan_name: 'Pro', cycle: 'month_price', total_amount: 15800, status: 1, created_at: Date.now() / 1000 - 3600 },
-  { trade_no: 'OR202604011229', email: 'li***@icloud.com', plan_name: 'Basic', cycle: 'month_price', total_amount: 2900, status: 3, created_at: Date.now() / 1000 - 5400 },
-]
 
 // ── Helpers ─────────────────────────────────
 function formatCNY(cents: number): string {
@@ -151,47 +101,53 @@ function orderStatusClass(status: number): string {
 }
 
 // ── Stat cards definition ──────────────────
-const statCards = computed(() => [
-  { label: '在线用户', value: stats.value.online_count.toLocaleString(), icon: '&#9679;', color: 'var(--success)' },
-  { label: '今日收入', value: '¥' + formatCNY(stats.value.today_income), icon: '&#36;', color: 'var(--brand)' },
-  { label: '月收入', value: '¥' + formatCNY(stats.value.month_income), icon: '&#9733;', color: 'var(--accent)' },
-  { label: '待处理工单', value: stats.value.pending_tickets.toString(), icon: '&#9993;', color: 'var(--warning)' },
-])
+const statCards = computed(() => {
+  if (!stats.value) return []
+  return [
+    { label: '在线用户', value: stats.value.online_count.toLocaleString(), icon: '&#9679;', color: 'var(--success)' },
+    { label: '今日收入', value: '¥' + formatCNY(stats.value.today_income), icon: '&#36;', color: 'var(--brand)' },
+    { label: '月收入', value: '¥' + formatCNY(stats.value.month_income), icon: '&#9733;', color: 'var(--accent)' },
+    { label: '待处理工单', value: stats.value.pending_tickets.toString(), icon: '&#9993;', color: 'var(--warning)' },
+  ]
+})
 
 // ── API fetching ────────────────────────────
 const loading = ref(true)
+const error = ref('')
 
 onMounted(async () => {
+  loading.value = true
+  error.value = ''
   try {
-    const [overrideRes, orderRes, serverTodayRes, userTodayRes] = await Promise.allSettled([
+    const [overrideRes, orderRes, serverTodayRes, userTodayRes, recentOrderRes] = await Promise.allSettled([
       adminStatApi.getOverride(),
       adminStatApi.getOrder(),
       adminStatApi.getServerTodayRank(),
       adminStatApi.getUserTodayRank(),
+      adminOrderApi.fetch({ page: 1, page_size: 10 }),
     ])
 
     // Override stats
     if (overrideRes.status === 'fulfilled' && overrideRes.value?.data) {
       const d = overrideRes.value.data
       stats.value = {
-        online_count: d.online_count ?? d.month_register ?? mockStats.online_count,
-        today_income: d.today_income ?? mockStats.today_income,
-        month_income: d.month_income ?? mockStats.month_income,
-        pending_tickets: d.pending_tickets ?? d.last_month_income ?? mockStats.pending_tickets,
-        total_users: d.total_users ?? mockStats.total_users,
-        today_register: d.today_register ?? mockStats.today_register,
-        today_commission: d.today_commission ?? mockStats.today_commission,
+        online_count: d.online_count ?? 0,
+        today_income: d.today_income ?? 0,
+        month_income: d.month_income ?? 0,
+        pending_tickets: d.pending_tickets ?? 0,
+        total_users: d.total_users ?? 0,
+        today_register: d.today_register ?? 0,
+        today_commission: d.today_commission ?? 0,
       }
     } else {
-      stats.value = { ...mockStats }
+      stats.value = null
     }
 
-    // Revenue chart — use order data or fallback
+    // Revenue chart — use order data from adminStatApi.getOrder()
     if (orderRes.status === 'fulfilled' && Array.isArray(orderRes.value?.data)) {
       revenueData.value = orderRes.value.data.map((v: any) => v.amount ?? v.value ?? 0)
-      if (revenueData.value.length < 7) revenueData.value = [...mockRevenue]
     } else {
-      revenueData.value = [...mockRevenue]
+      revenueData.value = []
     }
 
     // Server rank
@@ -203,9 +159,8 @@ onMounted(async () => {
         d: s.d || 0,
         total: (s.u || 0) + (s.d || 0),
       }))
-      if (!serverRank.value.length) serverRank.value = [...mockServerRank]
     } else {
-      serverRank.value = [...mockServerRank]
+      serverRank.value = []
     }
 
     // User rank
@@ -217,19 +172,20 @@ onMounted(async () => {
         d: u.d || 0,
         total: (u.u || 0) + (u.d || 0),
       }))
-      if (!userRank.value.length) userRank.value = [...mockUserRank]
     } else {
-      userRank.value = [...mockUserRank]
+      userRank.value = []
     }
 
-    recentOrders.value = [...mockOrders]
-  } catch {
-    // Full fallback to mock data
-    stats.value = { ...mockStats }
-    revenueData.value = [...mockRevenue]
-    serverRank.value = [...mockServerRank]
-    userRank.value = [...mockUserRank]
-    recentOrders.value = [...mockOrders]
+    // Recent orders
+    if (recentOrderRes.status === 'fulfilled' && Array.isArray(recentOrderRes.value?.data?.data)) {
+      recentOrders.value = recentOrderRes.value.data.data.slice(0, 10)
+    } else if (recentOrderRes.status === 'fulfilled' && Array.isArray(recentOrderRes.value?.data)) {
+      recentOrders.value = recentOrderRes.value.data.slice(0, 10)
+    } else {
+      recentOrders.value = []
+    }
+  } catch (e: any) {
+    error.value = e?.message || '加载数据失败，请刷新重试'
   } finally {
     loading.value = false
   }
@@ -243,6 +199,20 @@ onMounted(async () => {
       <h1>仪表盘</h1>
       <span class="header-sub">Admin Overview</span>
     </div>
+
+    <!-- Loading state -->
+    <div v-if="loading" class="dashboard-loading">
+      <div class="loading-spinner"></div>
+      <span>加载中...</span>
+    </div>
+
+    <!-- Error state -->
+    <div v-else-if="error" class="dashboard-error">
+      <span class="error-icon">&#9888;</span>
+      <span>{{ error }}</span>
+    </div>
+
+    <template v-else>
 
     <!-- ── 1. Top Stats Row ───────────────── -->
     <div class="stats-row">
@@ -271,7 +241,7 @@ onMounted(async () => {
         </div>
       </div>
       <div class="chart-area">
-        <div class="chart-bars">
+        <div v-if="revenueData.length" class="chart-bars">
           <div v-for="(val, i) in revenueData" :key="i" class="bar-col">
             <div class="bar-track">
               <div
@@ -287,10 +257,11 @@ onMounted(async () => {
             <span v-else class="bar-label empty"></span>
           </div>
         </div>
+        <div v-else class="chart-empty">暂无收入数据</div>
       </div>
-      <div class="chart-summary">
+      <div v-if="revenueData.length" class="chart-summary">
         <div class="summary-item">
-          <span class="summary-label">31天总计</span>
+          <span class="summary-label">总计</span>
           <span class="summary-value">¥{{ formatCNY(revenueData.reduce((a, b) => a + b, 0)) }}</span>
         </div>
         <div class="summary-item">
@@ -330,6 +301,9 @@ onMounted(async () => {
                 <td class="mono">{{ formatBytes(s.d) }}</td>
                 <td class="mono total-cell">{{ formatBytes(s.total) }}</td>
               </tr>
+              <tr v-if="!serverRank.length">
+                <td colspan="6" class="empty-row">暂无数据</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -356,6 +330,9 @@ onMounted(async () => {
                 <td class="mono">{{ formatBytes(u.u) }}</td>
                 <td class="mono">{{ formatBytes(u.d) }}</td>
                 <td class="mono total-cell">{{ formatBytes(u.total) }}</td>
+              </tr>
+              <tr v-if="!userRank.length">
+                <td colspan="5" class="empty-row">暂无数据</td>
               </tr>
             </tbody>
           </table>
@@ -392,10 +369,15 @@ onMounted(async () => {
               <td><span class="or-tag" :class="orderStatusClass(order.status)">{{ orderStatusLabel(order.status) }}</span></td>
               <td class="mono time-cell">{{ formatTime(order.created_at) }}</td>
             </tr>
+            <tr v-if="!recentOrders.length">
+              <td colspan="7" class="empty-row">暂无订单数据</td>
+            </tr>
           </tbody>
         </table>
       </div>
     </div>
+
+    </template><!-- end v-else -->
   </div>
 </template>
 
@@ -427,6 +409,53 @@ onMounted(async () => {
   font-weight: 500;
   letter-spacing: 0.5px;
   text-transform: uppercase;
+}
+
+// ── Loading / Error / Empty ──────────────────
+.dashboard-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $gap-md;
+  padding: $gap-xl * 3;
+  color: var(--text-3);
+  font-size: 14px;
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.dashboard-error {
+  display: flex;
+  align-items: center;
+  gap: $gap-sm;
+  padding: $gap-lg $gap-xl;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: $card-radius;
+  color: var(--danger);
+  font-size: 14px;
+}
+
+.error-icon {
+  font-size: 18px;
+}
+
+.empty-row {
+  text-align: center;
+  color: var(--text-3) !important;
+  font-size: 13px;
+  padding: $gap-xl !important;
 }
 
 // ── Stats Row ───────────────────────────────
@@ -514,6 +543,15 @@ onMounted(async () => {
 
 .chart-area {
   height: 200px;
+}
+
+.chart-empty {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+  font-size: 13px;
 }
 
 .chart-bars {

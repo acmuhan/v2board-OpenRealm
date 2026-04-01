@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { adminPlanApi } from '../../api/admin'
 
 
 // ── Types ──
@@ -27,31 +28,11 @@ interface Plan {
 // ── State ──
 const showEdit = ref(false)
 const editForm = ref<Record<string, any>>({})
+const loading = ref(true)
+const error = ref('')
 
-// ── Mock Data ──
-const plans = ref<Plan[]>([
-  {
-    id: 1, name: '基础版', content: '适合轻度使用的个人用户',
-    month_price: 1990, quarter_price: 4990, half_year_price: 8990, year_price: 14990,
-    two_year_price: 24990, three_year_price: 34990, onetime_price: null,
-    transfer_enable: 107374182400, speed_limit: 100, device_limit: 3, group_id: 1,
-    sort: 1, show: true, renew: true, user_count: 234,
-  },
-  {
-    id: 2, name: '专业版', content: '适合日常高速使用的用户',
-    month_price: 3990, quarter_price: 9990, half_year_price: 17990, year_price: 29990,
-    two_year_price: 49990, three_year_price: 69990, onetime_price: null,
-    transfer_enable: 214748364800, speed_limit: 300, device_limit: 5, group_id: 1,
-    sort: 2, show: true, renew: true, user_count: 156,
-  },
-  {
-    id: 3, name: '企业版', content: '不限速的企业级专属通道',
-    month_price: 9990, quarter_price: 24990, half_year_price: 44990, year_price: 79990,
-    two_year_price: null, three_year_price: null, onetime_price: 199990,
-    transfer_enable: 536870912000, speed_limit: null, device_limit: 10, group_id: 2,
-    sort: 3, show: true, renew: true, user_count: 42,
-  },
-])
+// ── Data ──
+const plans = ref<Plan[]>([])
 
 const planGradients = [
   'linear-gradient(135deg, rgba(var(--brand-rgb), 0.15), rgba(var(--accent-rgb), 0.05))',
@@ -72,6 +53,20 @@ function formatPrice(cents: number | null) {
   if (cents === null || cents === undefined) return '--'
   return '\u00a5' + (cents / 100).toFixed(2)
 }
+
+// ── Load plans ──
+onMounted(async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const res = await adminPlanApi.fetch()
+    plans.value = Array.isArray(res?.data) ? res.data : []
+  } catch (e: any) {
+    error.value = e?.message || '加载套餐失败，请刷新重试'
+  } finally {
+    loading.value = false
+  }
+})
 
 // ── Actions ──
 function openEdit(plan?: Plan) {
@@ -101,25 +96,39 @@ function openEdit(plan?: Plan) {
   showEdit.value = true
 }
 
-function saveEdit() {
-  if (editForm.value.id) {
-    const idx = plans.value.findIndex(p => p.id === editForm.value.id)
-    if (idx !== -1) {
-      plans.value[idx] = { ...plans.value[idx], ...editForm.value }
+async function saveEdit() {
+  try {
+    if (editForm.value.id) {
+      await adminPlanApi.update(editForm.value)
+    } else {
+      await adminPlanApi.save(editForm.value)
     }
-  } else {
-    const newId = Math.max(...plans.value.map(p => p.id), 0) + 1
-    plans.value.push({ ...editForm.value, id: newId, user_count: 0 } as Plan)
+    showEdit.value = false
+    // Reload list from API
+    const res = await adminPlanApi.fetch()
+    plans.value = Array.isArray(res?.data) ? res.data : []
+  } catch (e: any) {
+    alert(e?.message || '保存失败，请重试')
   }
-  showEdit.value = false
 }
 
-function toggleShow(plan: Plan) {
-  plan.show = !plan.show
+async function toggleShow(plan: Plan) {
+  try {
+    await adminPlanApi.update({ ...plan, show: !plan.show })
+    plan.show = !plan.show
+  } catch (e: any) {
+    alert(e?.message || '操作失败，请重试')
+  }
 }
 
-function deletePlan(id: number) {
-  plans.value = plans.value.filter(p => p.id !== id)
+async function deletePlan(id: number) {
+  if (!confirm('确认删除此套餐？')) return
+  try {
+    await adminPlanApi.drop({ id })
+    plans.value = plans.value.filter(p => p.id !== id)
+  } catch (e: any) {
+    alert(e?.message || '删除失败，请重试')
+  }
 }
 
 const priceFields = [
@@ -141,8 +150,19 @@ const priceFields = [
       <button class="btn-gradient" @click="openEdit()">添加套餐</button>
     </div>
 
+    <!-- Loading state -->
+    <div v-if="loading" class="plans-loading">
+      <div class="loading-spinner"></div>
+      <span>加载中...</span>
+    </div>
+
+    <!-- Error state -->
+    <div v-else-if="error" class="plans-error">
+      <span>&#9888; {{ error }}</span>
+    </div>
+
     <!-- Plan Cards Grid -->
-    <div class="plan-grid">
+    <div v-else class="plan-grid">
       <div
         v-for="(plan, idx) in plans"
         :key="plan.id"
@@ -315,6 +335,39 @@ const priceFields = [
 
 .admin-plans {
   max-width: 1200px;
+}
+
+// ── Loading / Error ──
+.plans-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $gap-md;
+  padding: $gap-xl * 3;
+  color: var(--text-3);
+  font-size: 14px;
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.plans-error {
+  padding: $gap-lg $gap-xl;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: $card-radius;
+  color: var(--danger);
+  font-size: 14px;
 }
 
 // ── Top Bar ──
