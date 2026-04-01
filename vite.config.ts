@@ -1,7 +1,8 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  base: command === 'build' ? '/theme/openrealm/' : '/',
   plugins: [vue()],
   resolve: {
     alias: {
@@ -32,4 +33,4 @@ export default defineConfig({
       },
     },
   },
-})
+}))
