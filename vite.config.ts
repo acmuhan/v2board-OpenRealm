@@ -13,10 +13,9 @@ export default defineConfig(({ command }) => ({
     port: 3000,
     // Anti-detection: proxy all API requests, no v2board paths exposed
     proxy: {
-      '/api': {
+      '/api/v1': {
         target: 'http://your-v2board-backend.com',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '/api/v1'),
       },
     },
   },

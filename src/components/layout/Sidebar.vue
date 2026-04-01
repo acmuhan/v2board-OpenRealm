@@ -10,6 +10,10 @@ const router = useRouter()
 const userStore = useUserStore()
 const themeStore = useThemeStore()
 const showThemes = ref(false)
+const isOpen = ref(false)
+
+const orConfig = (window as any).__OR_CONFIG__ || {}
+const siteTitle = orConfig.title || 'OpenRealm'
 
 const navGroups = [
   { label: '概览', items: [
@@ -34,37 +38,49 @@ const navGroups = [
 
 const isActive = (path: string) => path === '/' ? route.path === '/' : route.path.startsWith(path)
 function handleLogout() { userStore.logout(); router.push('/login') }
+function navigate(path: string) { isOpen.value = false; router.push(path) }
 </script>
 
 <template>
-  <aside class="sidebar">
+  <!-- Mobile hamburger button -->
+  <button class="hamburger" @click="isOpen = true" aria-label="菜单">
+    <span></span><span></span><span></span>
+  </button>
+
+  <!-- Mobile overlay -->
+  <div v-if="isOpen" class="sidebar-overlay" @click="isOpen = false"></div>
+
+  <aside :class="['sidebar', { 'sidebar-open': isOpen }]">
     <!-- Logo -->
-    <div class="sidebar-logo" @click="router.push('/')">
+    <div class="sidebar-logo" @click="navigate('/')">
       <div class="logo-mark">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
           <path d="M12 2L3 7v10l9 5 9-5V7l-9-5z" stroke="var(--brand)" stroke-width="2"/>
           <path d="M12 7v10M7 9.5l5 3 5-3" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
       </div>
-      <span class="logo-text">OpenRealm</span>
+      <span class="logo-text">{{ siteTitle }}</span>
+      <!-- Close button on mobile -->
+      <button class="sidebar-close" @click="isOpen = false" aria-label="关闭">✕</button>
     </div>
 
     <!-- Nav -->
     <nav class="sidebar-nav">
       <div v-for="group in navGroups" :key="group.label" class="nav-group">
         <span class="nav-label">{{ group.label }}</span>
-        <router-link
+        <a
           v-for="item in group.items"
           :key="item.path"
-          :to="item.path"
+          href="javascript:void(0)"
           :class="['nav-item', { active: isActive(item.path) }]"
+          @click="navigate(item.path)"
         >
           <div class="nav-icon-wrap">
             <SvgIcon :name="item.icon" :size="16" />
           </div>
           <span>{{ item.text }}</span>
           <div v-if="isActive(item.path)" class="active-indicator"></div>
-        </router-link>
+        </a>
       </div>
     </nav>
 
@@ -249,5 +265,75 @@ function handleLogout() { userStore.logout(); router.push('/login') }
   background: transparent; color: var(--text-3);
   transition: all 0.15s;
   &:hover { background: rgba(239,68,68,0.1); color: var(--danger); }
+}
+
+// Sidebar on mobile: hidden by default, slide-in when open
+@media (max-width: $bp-tablet) {
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: $z-modal;
+    box-shadow: var(--shadow-lg);
+  }
+  .sidebar-open {
+    transform: translateX(0);
+  }
+  .sidebar-close {
+    display: flex !important;
+  }
+}
+
+// Hamburger — visible only on mobile
+.hamburger {
+  display: none;
+  @media (max-width: $bp-tablet) {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    z-index: $z-header;
+    width: 38px; height: 38px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px;
+    cursor: pointer;
+    span {
+      display: block;
+      height: 2px;
+      background: var(--text-1);
+      border-radius: 2px;
+      transition: all 0.2s;
+    }
+  }
+}
+
+// Close button inside sidebar — mobile only
+.sidebar-close {
+  display: none;
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+  &:hover { color: var(--text-1); }
+}
+
+// Overlay
+.sidebar-overlay {
+  display: none;
+  @media (max-width: $bp-tablet) {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: calc(#{$z-modal} - 1);
+    backdrop-filter: blur(2px);
+  }
 }
 </style>

@@ -9,6 +9,11 @@ const password = ref('')
 const loading = ref(false)
 const error = ref('')
 
+// Read site title/tagline from V2Board config injected by dashboard.blade.php
+const orConfig = (window as any).__OR_CONFIG__ || {}
+const siteTitle = orConfig.title || 'OpenRealm'
+const siteDesc = orConfig.description || '安全、快速、可靠的网络连接'
+
 async function handleLogin() {
   if (!email.value || !password.value) {
     error.value = '请填写邮箱和密码'
@@ -71,9 +76,9 @@ onMounted(() => {
               <path d="M12 7v10M7 9.5l5 3 5-3" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
             </svg>
           </div>
-          <h1>OpenRealm</h1>
+          <h1>{{ siteTitle }}</h1>
         </div>
-        <p class="brand-tagline stagger-2">安全、快速、可靠的网络连接</p>
+        <p class="brand-tagline stagger-2">{{ siteDesc }}</p>
         <div class="brand-features">
           <div class="feature-item stagger-3">
             <div class="feature-dot"></div>
@@ -95,6 +100,16 @@ onMounted(() => {
     <!-- Right: form -->
     <div class="auth-right">
       <div class="auth-card stagger-2">
+        <!-- Mobile-only brand header (left panel is hidden on small screens) -->
+        <div class="mobile-brand">
+          <div class="brand-icon-sm">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2L3 7v10l9 5 9-5V7l-9-5z" stroke="var(--brand)" stroke-width="2"/>
+              <path d="M12 7v10M7 9.5l5 3 5-3" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span class="mobile-brand-name">{{ siteTitle }}</span>
+        </div>
         <h2>登录</h2>
 
         <div v-if="error" class="auth-error">{{ error }}</div>
@@ -220,5 +235,20 @@ onMounted(() => {
 .auth-switch {
   text-align: center; margin-top: 24px; font-size: 13px; color: var(--text-3);
   a { color: var(--brand-light); font-weight: 600; }
+}
+
+// Mobile-only brand header
+.mobile-brand {
+  display: none;
+  align-items: center; gap: 10px; margin-bottom: 28px;
+  @media (max-width: $bp-tablet) { display: flex; }
+}
+.brand-icon-sm {
+  width: 36px; height: 36px; background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: 10px; display: flex; align-items: center; justify-content: center;
+}
+.mobile-brand-name {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 18px; font-weight: 700; color: var(--text-1);
 }
 </style>

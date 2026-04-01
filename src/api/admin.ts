@@ -2,7 +2,7 @@ import http from './index'
 
 // Dynamic admin path — stored in localStorage for anti-detection
 const adminPath = () => localStorage.getItem('or_admin_path') || 'admin'
-const ap = () => `/v1/${adminPath()}`
+const ap = () => `/${adminPath()}`
 
 // ──────────────────────────────────────────────
 // Stat  (7 endpoints)

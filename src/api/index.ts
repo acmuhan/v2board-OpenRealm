@@ -1,7 +1,7 @@
 import axios from 'axios'
 
-// Anti-detection: configurable base URL, no v2board-specific paths exposed
-const BASE_URL = import.meta.env.VITE_API_BASE || '/api'
+// V2Board API lives under /api/v1/ — configurable via VITE_API_BASE env var
+const BASE_URL = import.meta.env.VITE_API_BASE || '/api/v1'
 
 const http = axios.create({
   baseURL: BASE_URL,

@@ -48,7 +48,9 @@ onMounted(async () => {
 
   @media (max-width: $bp-tablet) {
     margin-left: 0;
+    max-width: 100vw;
     padding: $gap-md;
+    padding-top: 62px; // leave room for hamburger button
   }
 }
 </style>

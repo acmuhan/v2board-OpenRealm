@@ -13,6 +13,7 @@
             description: @json($description ?? ''),
             theme:  @json($theme_config['or_theme'] ?? 'light'),
             locale: @json($theme_config['or_locale'] ?? 'zh-CN'),
+            adminPath: @json(env('APP_ADMIN_PATH', 'admin')),
         };
         // Pre-set localStorage so OpenRealm picks up theme/locale on first load
         try {
