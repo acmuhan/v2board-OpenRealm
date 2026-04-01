@@ -20,11 +20,11 @@ export default defineConfig({
     },
   },
   build: {
-    // Small bundle size, no source maps in production
+    // Generate manifest.json for V2Board theme dashboard.blade.php to resolve hashed asset names
+    manifest: true,
     sourcemap: false,
     rollupOptions: {
       output: {
-        // Randomized chunk names to avoid fingerprinting
         chunkFileNames: 'assets/[hash].js',
         entryFileNames: 'assets/[hash].js',
         assetFileNames: 'assets/[hash].[ext]',
