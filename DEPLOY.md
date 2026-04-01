@@ -100,27 +100,23 @@ V2B_ROOT=/www/wwwroot/v2board
 # 创建主题目录
 mkdir -p $V2B_ROOT/public/theme/openrealm
 
-# 复制 Vite 构建产物（含 .vite/manifest.json）
+# 复制 Vite 构建产物
 cp -r dist/* $V2B_ROOT/public/theme/openrealm/
-cp -r dist/.vite $V2B_ROOT/public/theme/openrealm/   # 确保隐藏目录被复制
 
 # 复制 V2Board 主题所需文件（config.json + dashboard.blade.php）
 cp theme/config.json $V2B_ROOT/public/theme/openrealm/
 cp theme/dashboard.blade.php $V2B_ROOT/public/theme/openrealm/
 ```
 
-> **注意**：`cp -r dist/*` 通常不会复制 `.vite/` 这种隐藏目录，需单独复制。
-
 最终目录结构应为：
 ```
 {v2board}/public/theme/openrealm/
 ├── config.json            ← V2Board 主题识别文件（必须）
 ├── dashboard.blade.php    ← V2Board 渲染入口（必须）
-├── .vite/
-│   └── manifest.json      ← Vite 资产清单（dashboard.blade.php 用于解析哈希文件名）
 └── assets/
-    ├── *.js
-    └── *.css
+    ├── app.js             ← 主 JS 入口（固定文件名）
+    ├── app.css            ← 主 CSS（固定文件名）
+    └── *.js               ← 代码分包（哈希命名）
 ```
 
 ### 2. 配置 Nginx 支持 SPA 路由
@@ -233,7 +229,7 @@ APP_CORS_ALLOWED_ORIGINS=https://app.yourdomain.com
 
 1. 进入 V2Board 网站根目录 → `public/theme/` 文件夹，新建 `openrealm` 目录
 2. 上传以下文件到 `public/theme/openrealm/`：
-   - `dist/` 内所有文件（含 `.vite/manifest.json` 隐藏目录）
+   - `dist/` 内所有文件（`assets/app.js`、`assets/app.css` 等）
    - `theme/config.json`
    - `theme/dashboard.blade.php`
 3. 登录 V2Board 管理后台 → **系统设置 → 站点配置 → 前端设置** → 主题选择 `openrealm` → 保存

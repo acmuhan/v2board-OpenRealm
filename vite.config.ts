@@ -20,14 +20,15 @@ export default defineConfig({
     },
   },
   build: {
-    // Generate manifest.json for V2Board theme dashboard.blade.php to resolve hashed asset names
-    manifest: true,
     sourcemap: false,
     rollupOptions: {
       output: {
         chunkFileNames: 'assets/[hash].js',
-        entryFileNames: 'assets/[hash].js',
-        assetFileNames: 'assets/[hash].[ext]',
+        entryFileNames: 'assets/app.js',
+        assetFileNames: (assetInfo) => {
+          if (assetInfo.name?.endsWith('.css')) return 'assets/app.css'
+          return 'assets/[hash].[ext]'
+        },
       },
     },
   },
