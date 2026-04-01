@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 
 export type ThemeId = 'default' | 'emerald' | 'violet' | 'sunset' | 'rose' | 'cyan'
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { adminOrderApi } from '../../api/admin'
+
 
 // ── Types ──
 interface Order {

@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue'
-import { adminThemeApi, adminConfigApi } from '../../api/admin'
+import { ref, reactive, computed } from 'vue'
 
 interface ThemePreset {
   name: string

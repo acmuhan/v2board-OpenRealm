@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
-import { adminSystemApi } from '../../api/admin'
+
 
 // System status
 const systemStatus = ref({
@@ -156,16 +156,6 @@ onMounted(() => {
 onUnmounted(() => {
   if (refreshTimer) clearInterval(refreshTimer)
 })
-
-function levelClass(level: LogLevel): string {
-  const map: Record<LogLevel, string> = {
-    debug: 'debug',
-    info: 'info',
-    warning: 'warning',
-    error: 'error',
-  }
-  return map[level] || 'info'
-}
 
 const statCards = [
   { key: 'jobs_per_minute', label: '处理速率', suffix: '/min', icon: '&#9889;' },

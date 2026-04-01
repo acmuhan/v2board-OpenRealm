@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { adminUserApi, adminPlanApi } from '../../api/admin'
+
 
 // ── Types ──
 interface User {

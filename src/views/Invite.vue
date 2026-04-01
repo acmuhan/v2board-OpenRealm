@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { inviteApi } from '../api'
-import { useUserStore } from '../stores/user'
 import SvgIcon from '../components/common/SvgIcon.vue'
 
-const userStore = useUserStore()
 const inviteData = ref<any>(null)
 const loading = ref(true)
 const copied = ref(false)

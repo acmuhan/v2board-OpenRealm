@@ -153,7 +153,7 @@ function copyLink() {
       <div class="bento-item span-2 card stagger-6" style="padding: 24px;">
         <span class="section-title">客户端下载</span>
         <div class="client-row">
-          <div v-for="(c, i) in [
+          <div v-for="c in [
             { n: 'Windows', icon: 'windows', g: 'linear-gradient(135deg, var(--brand), #6366f1)' },
             { n: 'iOS', icon: 'apple', g: 'linear-gradient(135deg, #a855f7, var(--brand))' },
             { n: 'Android', icon: 'android', g: 'linear-gradient(135deg, var(--accent), #06b6d4)' },

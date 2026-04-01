@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { adminPaymentApi } from '../../api/admin'
+
 
 interface PaymentMethod {
   id: number

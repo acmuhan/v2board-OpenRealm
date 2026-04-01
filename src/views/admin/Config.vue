@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
-import { adminConfigApi } from '../../api/admin'
+import { ref, reactive } from 'vue'
 
 interface TabDef {
   key: string
