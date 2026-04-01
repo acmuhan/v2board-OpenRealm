@@ -45,12 +45,14 @@ export const userApi = {
   getInfo: () => http.get('/user/info'),
   getStat: () => http.get('/user/getStat'),
   getSubscribe: () => http.get('/user/getSubscribe'),
+  checkLogin: () => http.get('/user/checkLogin'),
   resetSecurity: (data: { old_password: string; new_password: string }) =>
     http.post('/user/changePassword', data),
   transfer: (data: { transfer_amount: number }) =>
     http.post('/user/transfer', data),
   update: (data: Record<string, unknown>) =>
     http.post('/user/update', data),
+  getTrafficLog: () => http.get('/user/stat/getTrafficLog'),
 }
 
 // ---- Plan / Shop ----
@@ -62,6 +64,8 @@ export const planApi = {
 export const orderApi = {
   list: () => http.get('/user/order/fetch'),
   detail: (tradeNo: string) => http.get('/user/order/detail', { params: { trade_no: tradeNo } }),
+  check: (tradeNo: string) => http.get('/user/order/check', { params: { trade_no: tradeNo } }),
+  getPaymentMethod: () => http.get('/user/order/getPaymentMethod'),
   save: (data: { plan_id: number; cycle: string; coupon_code?: string }) =>
     http.post('/user/order/save', data),
   checkout: (tradeNo: string, method: number) =>
@@ -80,6 +84,7 @@ export const couponApi = {
 export const inviteApi = {
   fetch: () => http.get('/user/invite/fetch'),
   save: () => http.get('/user/invite/save'),
+  details: () => http.get('/user/invite/details'),
 }
 
 // ---- Ticket ----
@@ -97,6 +102,7 @@ export const ticketApi = {
 export const knowledgeApi = {
   list: () => http.get('/user/knowledge/fetch'),
   detail: (id: number) => http.get('/user/knowledge/fetch', { params: { id } }),
+  getCategory: () => http.get('/user/knowledge/getCategory'),
 }
 
 // ---- Server / Node ----
