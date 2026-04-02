@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { adminTicketApi } from '../../api/admin'
 
 /* ── Types ── */
@@ -39,49 +39,19 @@ const expandedId = ref<number | null>(null)
 const replyText = ref('')
 const replying = ref(false)
 
-/* ── Mock Data ── */
-const tickets = ref<Ticket[]>([
-  {
-    id: 1001, subject: 'Cannot connect to node Tokyo-03', user_email: 'alice@example.com',
-    status: 0, priority: 2, created_at: 1711900800,
-    messages: [
-      { id: 1, is_admin: false, message: 'I\'ve been unable to connect to Tokyo-03 since this morning. All other nodes work fine.', created_at: 1711900800 },
-      { id: 2, is_admin: true, message: 'We are investigating the issue. Could you provide your client logs?', created_at: 1711904400 },
-      { id: 3, is_admin: false, message: 'Here are the logs from Clash: [timeout after 10s]...', created_at: 1711908000 },
-    ],
-  },
-  {
-    id: 1002, subject: 'Billing discrepancy on last invoice', user_email: 'bob@mail.org',
-    status: 1, priority: 1, created_at: 1711814400,
-    messages: [
-      { id: 4, is_admin: false, message: 'I was charged twice for the March subscription.', created_at: 1711814400 },
-      { id: 5, is_admin: true, message: 'We have issued a refund for the duplicate charge. Please allow 3-5 business days.', created_at: 1711818000 },
-    ],
-  },
-  {
-    id: 1003, subject: 'Request for Singapore node', user_email: 'carol@test.io',
-    status: 0, priority: 0, created_at: 1711728000,
-    messages: [
-      { id: 6, is_admin: false, message: 'Would it be possible to add a Singapore node? It would greatly improve my latency.', created_at: 1711728000 },
-    ],
-  },
-  {
-    id: 1004, subject: 'Account upgrade not reflected', user_email: 'dave@company.com',
-    status: 2, priority: 1, created_at: 1711641600,
-    messages: [
-      { id: 7, is_admin: false, message: 'I upgraded to Pro plan but still see Basic features.', created_at: 1711641600 },
-      { id: 8, is_admin: true, message: 'Your plan has been manually synced. Please log out and back in.', created_at: 1711645200 },
-      { id: 9, is_admin: false, message: 'Working now, thank you!', created_at: 1711648800 },
-    ],
-  },
-  {
-    id: 1005, subject: 'Speed throttled on US-West', user_email: 'eve@domain.net',
-    status: 0, priority: 2, created_at: 1711555200,
-    messages: [
-      { id: 10, is_admin: false, message: 'Getting only 5 Mbps on US-West-02 while other nodes give 100+. Possible throttling?', created_at: 1711555200 },
-    ],
-  },
-])
+const tickets = ref<Ticket[]>([])
+const loading = ref(true)
+
+async function loadTickets() {
+  loading.value = true
+  try {
+    const res: any = await adminTicketApi.fetch()
+    tickets.value = res.data || []
+  } catch { tickets.value = [] }
+  finally { loading.value = false }
+}
+
+onMounted(() => loadTickets())
 
 /* ── Computed ── */
 const filteredTickets = computed(() => {
@@ -100,21 +70,15 @@ async function sendReply(ticket: Ticket) {
   replying.value = true
   try {
     await adminTicketApi.reply({ id: ticket.id, message: replyText.value })
-  } catch { /* mock fallback */ }
-  ticket.messages.push({
-    id: Date.now(),
-    is_admin: true,
-    message: replyText.value,
-    created_at: Math.floor(Date.now() / 1000),
-  })
-  ticket.status = 1
+  } catch { /* ignore */ }
   replyText.value = ''
   replying.value = false
+  await loadTickets()
 }
 
 async function closeTicket(ticket: Ticket) {
-  try { await adminTicketApi.close({ id: ticket.id }) } catch { /* mock */ }
-  ticket.status = 2
+  try { await adminTicketApi.close({ id: ticket.id }) } catch { /* ignore */ }
+  await loadTickets()
 }
 
 function formatDate(ts: number) {

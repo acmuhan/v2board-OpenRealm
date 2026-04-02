@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { adminGiftcardApi } from '../../api/admin'
 
 /* ── Types ── */
@@ -37,29 +37,19 @@ const form = ref({
   generate_count: 1,
 })
 
-/* ── Mock Data ── */
-const giftcards = ref<Giftcard[]>([
-  {
-    id: 1, code: 'GC-A7X9-K2M4', type: 1, value: 5000, status: 0,
-    created_at: 1711900800, used_at: null, used_by: null,
-  },
-  {
-    id: 2, code: 'GC-B3F8-N5P1', type: 2, value: 30, status: 1,
-    created_at: 1711814400, used_at: 1711900800, used_by: 'alice@example.com',
-  },
-  {
-    id: 3, code: 'GC-C1D6-Q8R2', type: 3, value: 107374182400, status: 0,
-    created_at: 1711728000, used_at: null, used_by: null,
-  },
-  {
-    id: 4, code: 'GC-D4E7-S9T3', type: 4, value: 2, status: 1,
-    created_at: 1711641600, used_at: 1711728000, used_by: 'bob@mail.org',
-  },
-  {
-    id: 5, code: 'GC-E2F5-U6V8', type: 1, value: 10000, status: 0,
-    created_at: 1711555200, used_at: null, used_by: null,
-  },
-])
+const giftcards = ref<Giftcard[]>([])
+const loading = ref(true)
+
+async function loadGiftcards() {
+  loading.value = true
+  try {
+    const res: any = await adminGiftcardApi.fetch()
+    giftcards.value = res.data || []
+  } catch { giftcards.value = [] }
+  finally { loading.value = false }
+}
+
+onMounted(() => loadGiftcards())
 
 /* ── Helpers ── */
 function formatDate(ts: number) {
@@ -83,12 +73,6 @@ function formatBytes(bytes: number) {
   return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`
 }
 
-function generateCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  const seg = () => { let s = ''; for (let i = 0; i < 4; i++) s += chars[Math.floor(Math.random() * chars.length)]; return s }
-  return `GC-${seg()}-${seg()}`
-}
-
 /* ── Actions ── */
 function openGenerate() {
   form.value = { type: 1, value: 0, generate_count: 1 }
@@ -102,27 +86,15 @@ async function submitGenerate() {
     generate_count: form.value.generate_count,
   }
 
-  try { await adminGiftcardApi.generate(payload) } catch { /* mock */ }
-
-  for (let i = 0; i < form.value.generate_count; i++) {
-    giftcards.value.unshift({
-      id: Date.now() + i,
-      code: generateCode(),
-      type: form.value.type,
-      value: form.value.type === 1 ? form.value.value * 100 : form.value.value,
-      status: 0,
-      created_at: Math.floor(Date.now() / 1000),
-      used_at: null,
-      used_by: null,
-    })
-  }
+  try { await adminGiftcardApi.generate(payload) } catch { /* ignore */ }
   showModal.value = false
+  await loadGiftcards()
 }
 
 async function deleteGiftcard(id: number) {
-  try { await adminGiftcardApi.drop({ id }) } catch { /* mock */ }
-  giftcards.value = giftcards.value.filter(g => g.id !== id)
+  try { await adminGiftcardApi.drop({ id }) } catch { /* ignore */ }
   confirmDeleteId.value = null
+  await loadGiftcards()
 }
 
 /* ── Value placeholder helper ── */

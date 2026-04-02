@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { adminKnowledgeApi } from '../../api/admin'
 
 /* ── Types ── */
@@ -24,31 +24,24 @@ const form = ref({
   show: true,
 })
 
-/* ── Mock Data ── */
-const categories = ref<string[]>(['Getting Started', 'Advanced Usage'])
+const categories = ref<string[]>([])
+const articles = ref<Article[]>([])
+const loading = ref(true)
 
-const articles = ref<Article[]>([
-  {
-    id: 1, title: 'How to Subscribe and Connect', category: 'Getting Started',
-    body: 'Step 1: Purchase a plan from the Shop page.\nStep 2: Copy your subscription link from the Dashboard.\nStep 3: Import the link into your client (Clash, V2rayN, Shadowrocket, etc.).\nStep 4: Select a node and connect.',
-    show: true, sort: 0,
-  },
-  {
-    id: 2, title: 'Supported Client Applications', category: 'Getting Started',
-    body: 'We support the following clients:\n- Windows: Clash for Windows, V2rayN\n- macOS: ClashX Pro, Surge\n- iOS: Shadowrocket, Quantumult X, Stash\n- Android: Clash for Android, V2rayNG\n\nRecommended: Clash-based clients for best compatibility.',
-    show: true, sort: 1,
-  },
-  {
-    id: 3, title: 'Configuring Custom DNS and Rules', category: 'Advanced Usage',
-    body: 'You can customize DNS resolution and routing rules in Clash:\n\n1. Edit your config file under "dns" section\n2. Add custom nameservers or DoH endpoints\n3. Define rule-providers for ad-blocking or region-based routing\n4. Use rule sets from community repositories for enhanced filtering.',
-    show: true, sort: 0,
-  },
-  {
-    id: 4, title: 'Traffic Optimization Tips', category: 'Advanced Usage',
-    body: 'To reduce unnecessary traffic and improve speed:\n\n- Enable UDP relay only when needed (gaming, VoIP)\n- Use rule-based proxy mode instead of global\n- Select the nearest geographic node\n- Avoid streaming on multiple devices simultaneously if on a limited plan.',
-    show: false, sort: 1,
-  },
-])
+async function loadArticles() {
+  loading.value = true
+  try {
+    const [artRes, catRes]: any = await Promise.all([
+      adminKnowledgeApi.fetch(),
+      adminKnowledgeApi.getCategory(),
+    ])
+    articles.value = artRes.data || []
+    categories.value = catRes.data || []
+  } catch { articles.value = []; categories.value = [] }
+  finally { loading.value = false }
+}
+
+onMounted(() => loadArticles())
 
 /* ── Computed ── */
 const filteredArticles = computed(() => {
@@ -79,33 +72,15 @@ async function saveArticle() {
     show: form.value.show ? 1 : 0,
   }
 
-  if (editingId.value !== null) {
-    payload.id = editingId.value
-    try { await adminKnowledgeApi.save(payload) } catch { /* mock */ }
-    const idx = articles.value.findIndex(a => a.id === editingId.value)
-    if (idx !== -1) {
-      articles.value[idx] = { ...articles.value[idx], ...form.value }
-    }
-  } else {
-    try { await adminKnowledgeApi.save(payload) } catch { /* mock */ }
-    articles.value.push({
-      id: Date.now(),
-      title: form.value.title,
-      category: form.value.category,
-      body: form.value.body,
-      show: form.value.show,
-      sort: articles.value.length,
-    })
-    if (!categories.value.includes(form.value.category)) {
-      categories.value.push(form.value.category)
-    }
-  }
+  if (editingId.value !== null) payload.id = editingId.value
+  try { await adminKnowledgeApi.save(payload) } catch { /* ignore */ }
   showModal.value = false
+  await loadArticles()
 }
 
 async function deleteArticle(id: number) {
-  try { await adminKnowledgeApi.drop({ id }) } catch { /* mock */ }
-  articles.value = articles.value.filter(a => a.id !== id)
+  try { await adminKnowledgeApi.drop({ id }) } catch { /* ignore */ }
+  await loadArticles()
 }
 
 function moveUp(article: Article) {

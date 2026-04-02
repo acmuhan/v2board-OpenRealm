@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { adminSystemApi } from '../../api/admin'
 
 
 // System status
@@ -100,19 +101,21 @@ function scrollToBottom() {
 async function refreshStatus() {
   refreshing.value = true
   try {
-    // const [statusRes, statsRes, workloadRes] = await Promise.all([
-    //   adminSystemApi.getSystemStatus(),
-    //   adminSystemApi.getQueueStats(),
-    //   adminSystemApi.getQueueWorkload(),
-    // ])
-    await new Promise((r) => setTimeout(r, 800))
+    const [statusRes, statsRes, workloadRes] = await Promise.allSettled([
+      adminSystemApi.getSystemStatus(),
+      adminSystemApi.getQueueStats(),
+      adminSystemApi.getQueueWorkload(),
+    ])
+    if (statusRes.status === 'fulfilled' && (statusRes.value as any)?.data)
+      systemStatus.value = { ...systemStatus.value, ...(statusRes.value as any).data }
+    if (statsRes.status === 'fulfilled' && (statsRes.value as any)?.data)
+      queueStats.value = { ...queueStats.value, ...(statsRes.value as any).data }
+    if (workloadRes.status === 'fulfilled' && (workloadRes.value as any)?.data)
+      queueWorkload.value = (workloadRes.value as any).data
     systemStatus.value.last_check = new Date().toLocaleString('zh-CN', {
       year: 'numeric', month: '2-digit', day: '2-digit',
       hour: '2-digit', minute: '2-digit', second: '2-digit',
     })
-    // Simulate slight changes
-    queueStats.value.jobs_per_minute = 38 + Math.floor(Math.random() * 10)
-    queueStats.value.active_processes = 6 + Math.floor(Math.random() * 4)
   } finally {
     refreshing.value = false
   }
@@ -121,35 +124,21 @@ async function refreshStatus() {
 async function refreshLogs() {
   refreshingLogs.value = true
   try {
-    // const res = await adminSystemApi.getSystemLog({ level: logFilter.value })
-    await new Promise((r) => setTimeout(r, 500))
-    // Add a new mock log entry
-    const newId = logs.value.length + 1
-    const levels: LogLevel[] = ['info', 'debug', 'warning', 'info']
-    const messages = [
-      '[System] Heartbeat OK',
-      '[Queue] Job completed successfully',
-      '[API] Request processed in 12ms',
-      '[Server] Connectivity check passed',
-    ]
-    const idx = Math.floor(Math.random() * levels.length)
-    const now = new Date()
-    logs.value.unshift({
-      id: newId,
-      time: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`,
-      level: levels[idx],
-      message: messages[idx],
-    })
-    updateFilteredLogs()
-  } finally {
-    refreshingLogs.value = false
-  }
+    const params = logFilter.value !== 'all' ? { level: logFilter.value } : {}
+    const res: any = await adminSystemApi.getSystemLog(params)
+    if (res?.data?.length) {
+      logs.value = res.data
+      updateFilteredLogs()
+    }
+  } catch { /* keep current logs */ }
+  finally { refreshingLogs.value = false }
 }
 
 // Auto-refresh interval
 let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 onMounted(() => {
+  refreshStatus()
   scrollToBottom()
 })
 

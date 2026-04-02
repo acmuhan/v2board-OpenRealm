@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { adminNoticeApi } from '../../api/admin'
 
 /* ── Types ── */
@@ -25,24 +25,19 @@ const form = ref({
   tags: '',
 })
 
-/* ── Mock Data ── */
-const notices = ref<Notice[]>([
-  {
-    id: 1, title: 'System Maintenance Scheduled',
-    content: 'We will be performing scheduled maintenance on April 5th from 02:00 to 04:00 UTC. Some services may be temporarily unavailable during this period.',
-    img_url: '', tags: ['maintenance', 'important'], show: true, created_at: 1711900800,
-  },
-  {
-    id: 2, title: 'New Singapore Node Available',
-    content: 'We are excited to announce a new high-speed Singapore node (SG-Premium-01) is now available for all Pro and Enterprise plan users.',
-    img_url: 'https://example.com/sg-node.png', tags: ['new-feature', 'nodes'], show: true, created_at: 1711814400,
-  },
-  {
-    id: 3, title: 'Holiday Promotion - 30% Off',
-    content: 'Celebrate the spring season with 30% off all annual plans. Use code SPRING30 at checkout. Valid until April 15th.',
-    img_url: '', tags: ['promotion'], show: false, created_at: 1711728000,
-  },
-])
+const notices = ref<Notice[]>([])
+const loading = ref(true)
+
+async function loadNotices() {
+  loading.value = true
+  try {
+    const res: any = await adminNoticeApi.fetch()
+    notices.value = res.data || []
+  } catch { notices.value = [] }
+  finally { loading.value = false }
+}
+
+onMounted(() => loadNotices())
 
 /* ── Actions ── */
 function openAdd() {
@@ -70,43 +65,21 @@ async function saveNotice() {
     tags: form.value.tags.split(',').map(t => t.trim()).filter(Boolean),
   }
 
-  if (editingId.value !== null) {
-    payload.id = editingId.value
-    try { await adminNoticeApi.save(payload) } catch { /* mock */ }
-    const idx = notices.value.findIndex(n => n.id === editingId.value)
-    if (idx !== -1) {
-      notices.value[idx] = {
-        ...notices.value[idx],
-        title: form.value.title,
-        content: form.value.content,
-        img_url: form.value.img_url,
-        tags: (payload.tags as string[]),
-      }
-    }
-  } else {
-    try { await adminNoticeApi.save(payload) } catch { /* mock */ }
-    notices.value.unshift({
-      id: Date.now(),
-      title: form.value.title,
-      content: form.value.content,
-      img_url: form.value.img_url,
-      tags: (payload.tags as string[]),
-      show: true,
-      created_at: Math.floor(Date.now() / 1000),
-    })
-  }
+  if (editingId.value !== null) payload.id = editingId.value
+  try { await adminNoticeApi.save(payload) } catch { /* ignore */ }
   showModal.value = false
+  await loadNotices()
 }
 
 async function toggleVisibility(n: Notice) {
-  n.show = !n.show
-  try { await adminNoticeApi.save({ id: n.id, show: n.show ? 1 : 0 }) } catch { /* mock */ }
+  try { await adminNoticeApi.save({ id: n.id, show: n.show ? 0 : 1 }) } catch { /* ignore */ }
+  await loadNotices()
 }
 
 async function deleteNotice(id: number) {
-  try { await adminNoticeApi.drop({ id }) } catch { /* mock */ }
-  notices.value = notices.value.filter(n => n.id !== id)
+  try { await adminNoticeApi.drop({ id }) } catch { /* ignore */ }
   confirmDeleteId.value = null
+  await loadNotices()
 }
 
 function formatDate(ts: number) {

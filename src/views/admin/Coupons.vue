@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { adminCouponApi } from '../../api/admin'
 
 /* ── Types ── */
@@ -35,29 +35,19 @@ const form = ref({
   generate_count: 1,
 })
 
-/* ── Mock Data ── */
-const coupons = ref<Coupon[]>([
-  {
-    id: 1, name: 'Spring Sale', code: 'SPRING30', type: 2, value: 30,
-    limit_use: 100, limit_use_with_user: 1, limit_plan_ids: null,
-    used: 42, started_at: 1711728000, ended_at: 1713456000, show: true,
-  },
-  {
-    id: 2, name: 'Welcome Discount', code: 'WELCOME10', type: 1, value: 1000,
-    limit_use: null, limit_use_with_user: 1, limit_plan_ids: [1, 2],
-    used: 156, started_at: 1709222400, ended_at: 1714608000, show: true,
-  },
-  {
-    id: 3, name: 'VIP Exclusive', code: 'VIP50OFF', type: 2, value: 50,
-    limit_use: 20, limit_use_with_user: 1, limit_plan_ids: [3],
-    used: 20, started_at: 1710432000, ended_at: 1711641600, show: false,
-  },
-  {
-    id: 4, name: 'Flash Deal', code: 'FLASH5', type: 1, value: 500,
-    limit_use: 50, limit_use_with_user: 2, limit_plan_ids: null,
-    used: 8, started_at: 1711900800, ended_at: 1712505600, show: true,
-  },
-])
+const coupons = ref<Coupon[]>([])
+const loading = ref(true)
+
+async function loadCoupons() {
+  loading.value = true
+  try {
+    const res: any = await adminCouponApi.fetch()
+    coupons.value = res.data || []
+  } catch { coupons.value = [] }
+  finally { loading.value = false }
+}
+
+onMounted(() => loadCoupons())
 
 /* ── Computed ── */
 const isExpired = (c: Coupon) => c.ended_at * 1000 < Date.now()
@@ -102,39 +92,20 @@ async function submitGenerate() {
     generate_count: form.value.generate_count,
   }
 
-  try { await adminCouponApi.generate(payload) } catch { /* mock */ }
-
-  // Mock add
-  for (let i = 0; i < form.value.generate_count; i++) {
-    coupons.value.unshift({
-      id: Date.now() + i,
-      name: form.value.name,
-      code: form.value.generate_count > 1 ? `${form.value.code}-${i + 1}` : form.value.code,
-      type: form.value.type,
-      value: form.value.type === 1 ? form.value.value * 100 : form.value.value,
-      limit_use: form.value.limit_use,
-      limit_use_with_user: form.value.limit_use_with_user,
-      limit_plan_ids: form.value.limit_plan_ids
-        ? form.value.limit_plan_ids.split(',').map(s => Number(s.trim())).filter(Boolean)
-        : null,
-      used: 0,
-      started_at: form.value.started_at ? Math.floor(new Date(form.value.started_at).getTime() / 1000) : Math.floor(Date.now() / 1000),
-      ended_at: form.value.ended_at ? Math.floor(new Date(form.value.ended_at).getTime() / 1000) : Math.floor(Date.now() / 1000) + 2592000,
-      show: true,
-    })
-  }
+  try { await adminCouponApi.generate(payload) } catch { /* ignore */ }
   showModal.value = false
+  await loadCoupons()
 }
 
 async function toggleShow(c: Coupon) {
-  c.show = !c.show
-  try { await adminCouponApi.generate({ id: c.id, show: c.show ? 1 : 0 }) } catch { /* mock */ }
+  try { await adminCouponApi.generate({ id: c.id, show: c.show ? 0 : 1 }) } catch { /* ignore */ }
+  await loadCoupons()
 }
 
 async function deleteCoupon(id: number) {
-  try { await adminCouponApi.drop({ id }) } catch { /* mock */ }
-  coupons.value = coupons.value.filter(c => c.id !== id)
+  try { await adminCouponApi.drop({ id }) } catch { /* ignore */ }
   confirmDeleteId.value = null
+  await loadCoupons()
 }
 
 function formatDate(ts: number) {

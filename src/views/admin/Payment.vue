@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-
+import { ref, computed, onMounted } from 'vue'
+import { adminPaymentApi } from '../../api/admin'
 
 interface PaymentMethod {
   id: number
@@ -60,45 +60,19 @@ const gateways: GatewayOption[] = [
   },
 ]
 
-// Mock data
-const payments = ref<PaymentMethod[]>([
-  {
-    id: 1,
-    name: 'Stripe',
-    icon: 'https://cdn.jsdelivr.net/gh/nicepkg/vr-mapping/icons/stripe.svg',
-    payment: 'StripeAlipay',
-    config: { stripe_sk_live: 'sk_live_xxx', stripe_pk_live: 'pk_live_xxx', stripe_webhook_key: 'whsec_xxx' },
-    notify_domain: 'https://api.example.com',
-    handling_fee_fixed: 0,
-    handling_fee_percent: 2.9,
-    enable: true,
-    sort: 1,
-  },
-  {
-    id: 2,
-    name: 'Alipay',
-    icon: 'https://cdn.jsdelivr.net/gh/nicepkg/vr-mapping/icons/alipay.svg',
-    payment: 'AlipayF2F',
-    config: { app_id: '2021000000', ali_public_key: 'MIIBxxx', private_key: 'MIIEvxxx' },
-    notify_domain: 'https://api.example.com',
-    handling_fee_fixed: 0,
-    handling_fee_percent: 0.6,
-    enable: true,
-    sort: 2,
-  },
-  {
-    id: 3,
-    name: 'USDT (TRC20)',
-    icon: 'https://cdn.jsdelivr.net/gh/nicepkg/vr-mapping/icons/tether.svg',
-    payment: 'MGate',
-    config: { mgate_url: 'https://api.mgate.io', mgate_app_id: 'app_xxx', mgate_app_secret: 'secret_xxx' },
-    notify_domain: 'https://api.example.com',
-    handling_fee_fixed: 100,
-    handling_fee_percent: 0,
-    enable: false,
-    sort: 3,
-  },
-])
+const payments = ref<PaymentMethod[]>([])
+const loading = ref(true)
+
+async function loadPayments() {
+  loading.value = true
+  try {
+    const res: any = await adminPaymentApi.fetch()
+    payments.value = res.data || []
+  } catch { payments.value = [] }
+  finally { loading.value = false }
+}
+
+onMounted(() => loadPayments())
 
 const showModal = ref(false)
 const editingId = ref<number | null>(null)
@@ -154,33 +128,25 @@ function openEdit(p: PaymentMethod) {
 async function savePayment() {
   saving.value = true
   try {
-    if (isEdit.value) {
-      // await adminPaymentApi.save({ id: editingId.value, ...form.value })
-      const idx = payments.value.findIndex((p) => p.id === editingId.value)
-      if (idx !== -1) Object.assign(payments.value[idx], form.value)
-    } else {
-      // await adminPaymentApi.save(form.value)
-      const newId = Math.max(...payments.value.map((p) => p.id), 0) + 1
-      payments.value.push({
-        id: newId,
-        sort: payments.value.length + 1,
-        ...form.value,
-      })
-    }
+    const payload = isEdit.value
+      ? { id: editingId.value, ...form.value }
+      : form.value
+    await adminPaymentApi.save(payload as Record<string, unknown>)
     showModal.value = false
+    await loadPayments()
   } finally {
     saving.value = false
   }
 }
 
-function deletePayment(id: number) {
-  payments.value = payments.value.filter((p) => p.id !== id)
-  // adminPaymentApi.drop({ id })
+async function deletePayment(id: number) {
+  try { await adminPaymentApi.drop({ id }) } catch { /* ignore */ }
+  await loadPayments()
 }
 
-function toggleEnable(p: PaymentMethod) {
-  p.enable = !p.enable
-  // adminPaymentApi.save({ id: p.id, enable: p.enable ? 1 : 0 })
+async function toggleEnable(p: PaymentMethod) {
+  try { await adminPaymentApi.save({ id: p.id, enable: p.enable ? 0 : 1 }) } catch { /* ignore */ }
+  await loadPayments()
 }
 
 function moveUp(idx: number) {
