@@ -4,7 +4,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no">
     <title>{{ $title }}</title>
-    <link rel="stylesheet" href="/theme/{{ $theme }}/assets/app.css">
+    {{-- Cache-busting: use file mtime so Cloudflare never serves stale assets --}}
+    @php
+        $appJsPath  = public_path('theme/' . $theme . '/assets/app.js');
+        $buildVer   = file_exists($appJsPath) ? filemtime($appJsPath) : time();
+    @endphp
+    <link rel="stylesheet" href="/theme/{{ $theme }}/assets/app.css?v={{ $buildVer }}">
     {{-- Pass V2Board site config to OpenRealm --}}
     <script>
         window.__OR_CONFIG__ = {
@@ -21,7 +26,7 @@
             if (!localStorage.getItem('or_locale')) localStorage.setItem('or_locale', window.__OR_CONFIG__.locale);
         } catch(e) {}
     </script>
-    <script data-cfasync="false" type="module" src="/theme/{{ $theme }}/assets/app.js"></script>
+    <script data-cfasync="false" type="module" src="/theme/{{ $theme }}/assets/app.js?v={{ $buildVer }}"></script>
 </head>
 <body>
     <div id="app"></div>

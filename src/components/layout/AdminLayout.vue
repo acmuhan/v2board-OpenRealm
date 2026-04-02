@@ -9,6 +9,7 @@ const userStore = useUserStore()
 const searchQuery = ref('')
 const showLocale = ref(false)
 const currentLocale = ref<'zh' | 'en'>('zh')
+const adminSidebarOpen = ref(false)
 
 const locales = [
   { id: 'zh' as const, label: '中文' },
@@ -41,7 +42,15 @@ onMounted(async () => {
 
 <template>
   <div class="admin-layout">
-    <AdminSidebar />
+    <!-- Mobile hamburger -->
+    <button class="admin-hamburger" @click="adminSidebarOpen = true" aria-label="菜单">
+      <span></span><span></span><span></span>
+    </button>
+
+    <!-- Mobile overlay -->
+    <div v-if="adminSidebarOpen" class="admin-overlay" @click="adminSidebarOpen = false"></div>
+
+    <AdminSidebar :open="adminSidebarOpen" @close="adminSidebarOpen = false" />
 
     <div class="admin-main">
       <!-- Top Bar -->
@@ -169,6 +178,10 @@ $admin-sidebar-width: 260px;
 .topbar-left {
   flex: 1;
   max-width: 420px;
+
+  @media (max-width: $bp-tablet) {
+    display: none;
+  }
 }
 
 .search-box {
@@ -309,6 +322,10 @@ $admin-sidebar-width: 260px;
   display: flex;
   flex-direction: column;
   line-height: 1.2;
+
+  @media (max-width: $bp-mobile) {
+    display: none;
+  }
 }
 
 .admin-user-name {
@@ -346,6 +363,51 @@ $admin-sidebar-width: 260px;
 
   @media (max-width: $bp-tablet) {
     padding: $gap-md;
+    padding-top: calc(60px + $gap-md);
+  }
+}
+
+// ── Mobile Hamburger ──
+.admin-hamburger {
+  display: none;
+
+  @media (max-width: $bp-tablet) {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    z-index: calc(#{$z-header} + 1);
+    width: 38px;
+    height: 38px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px;
+    cursor: pointer;
+
+    span {
+      display: block;
+      height: 2px;
+      background: var(--text-1);
+      border-radius: 2px;
+    }
+  }
+}
+
+// ── Mobile Overlay ──
+.admin-overlay {
+  display: none;
+
+  @media (max-width: $bp-tablet) {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: calc(#{$z-modal} - 1);
+    backdrop-filter: blur(2px);
   }
 }
 </style>

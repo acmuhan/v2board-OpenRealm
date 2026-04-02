@@ -77,7 +77,10 @@ async function changePassword() {
 @use '../assets/styles/variables' as *;
 .page-title { font-size: 22px; font-weight: 700; margin-bottom: $gap-lg; }
 .settings-section { padding: $gap-lg; margin-bottom: $gap-lg; h3 { font-size: 16px; font-weight: 600; margin-bottom: $gap-md; } }
-.info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: $gap-md; }
+.info-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: $gap-md;
+  @media (max-width: $bp-mobile) { grid-template-columns: 1fr; }
+}
 .info-item { display: flex; flex-direction: column; gap: 4px; }
 .info-label { font-size: 12px; color: var(--text-3); }
 .info-value { font-size: 16px; font-weight: 600; }

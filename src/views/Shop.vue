@@ -96,7 +96,7 @@ const planGradients = [
             &yen;{{ (plan.month_price / 100).toFixed(0) }}<small>/月起</small>
           </span>
         </div>
-        <p class="plan-desc">{{ plan.content || '高速稳定的网络加速服务' }}</p>
+        <p class="plan-desc" v-html="plan.content || '高速稳定的网络加速服务'"></p>
         <ul class="plan-features">
           <li v-if="plan.transfer_enable">
             流量: {{ (plan.transfer_enable / (1024*1024*1024)).toFixed(0) }} GB

@@ -72,7 +72,10 @@ async function cancelOrder(tradeNo: string) {
 .order-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: $gap-sm; }
 .order-plan { font-size: 16px; font-weight: 600; }
 .order-no { font-size: 12px; color: var(--text-3); margin-left: $gap-sm; }
-.order-detail { display: flex; gap: $gap-xl; font-size: 13px; color: var(--text-2); }
+.order-detail {
+  display: flex; gap: $gap-xl; font-size: 13px; color: var(--text-2);
+  @media (max-width: $bp-mobile) { flex-direction: column; gap: $gap-xs; }
+}
 .order-actions { display: flex; gap: $gap-sm; margin-top: $gap-md; }
 .empty-state { text-align: center; padding: $gap-xl; color: var(--text-3); }
 </style>

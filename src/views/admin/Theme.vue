@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
+import { useThemeStore, type ThemeId } from '../../stores/theme'
 
 interface ThemePreset {
   name: string
@@ -21,7 +22,8 @@ const presets: ThemePreset[] = [
   { name: 'cyan', label: 'Cyan', brand: '#0891b2', brandLight: '#06b6d4', accent: '#14b8a6', bg0: '#070a10', bg1: '#0b0f18', bg2: '#101724' },
 ]
 
-const activePreset = ref('default')
+const themeStore = useThemeStore()
+const activePreset = ref<string>(themeStore.current)
 const activeSection = ref<'palette' | 'custom' | 'frontend' | 'export'>('palette')
 const saving = ref(false)
 const saved = ref(false)
@@ -60,14 +62,26 @@ const previewGradient = computed(() =>
 
 function selectPreset(name: string) {
   activePreset.value = name
-  // In real app: adminThemeApi.saveThemeConfig({ theme: name })
+  themeStore.setTheme(name as ThemeId)
 }
 
 async function saveTheme() {
   saving.value = true
   try {
-    // await adminThemeApi.saveThemeConfig({ ...custom })
-    await new Promise((r) => setTimeout(r, 600))
+    // Apply custom theme via CSS variables injected into :root
+    const root = document.documentElement
+    root.style.setProperty('--brand', custom.brand)
+    root.style.setProperty('--brand-light', custom.brandLight)
+    root.style.setProperty('--accent', custom.accent)
+    root.style.setProperty('--bg-0', custom.bg0)
+    root.style.setProperty('--bg-1', custom.bg1)
+    root.style.setProperty('--bg-2', custom.bg2)
+    root.style.setProperty('--bg-card', custom.bg2)
+    root.style.setProperty('--text-1', custom.text1)
+    root.style.setProperty('--text-2', custom.text2)
+    root.style.setProperty('--text-3', custom.text3)
+    // Persist to localStorage for page refreshes
+    localStorage.setItem('or_custom_theme', JSON.stringify(custom))
     saved.value = true
     setTimeout(() => (saved.value = false), 2500)
   } finally {

@@ -3,10 +3,16 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useThemeStore, themes } from '../../stores/theme'
 
+defineProps<{ open?: boolean }>()
+const emit = defineEmits<{ (e: 'close'): void }>()
+
 const route = useRoute()
 const router = useRouter()
 const themeStore = useThemeStore()
 const showThemes = ref(false)
+
+const orConfig = (window as any).__OR_CONFIG__ || {}
+const siteTitle = orConfig.title || 'OpenRealm'
 
 const navGroups = [
   {
@@ -95,9 +101,9 @@ const isActive = (path: string) =>
 </script>
 
 <template>
-  <aside class="admin-sidebar">
+  <aside :class="['admin-sidebar', { 'admin-sidebar-open': open }]">
     <!-- Brand -->
-    <div class="sidebar-brand" @click="router.push('/admin')">
+    <div class="sidebar-brand" @click="router.push('/admin'); emit('close')">
       <div class="brand-mark">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
           <path d="M12 2L3 7v10l9 5 9-5V7l-9-5z" stroke="var(--brand)" stroke-width="2" />
@@ -105,9 +111,10 @@ const isActive = (path: string) =>
         </svg>
       </div>
       <div class="brand-text">
-        <span class="brand-name">OpenRealm</span>
+        <span class="brand-name">{{ siteTitle }}</span>
         <span class="brand-badge">Admin</span>
       </div>
+      <button class="admin-sidebar-close" @click.stop="emit('close')" aria-label="关闭">✕</button>
     </div>
 
     <!-- Navigation -->
@@ -119,6 +126,7 @@ const isActive = (path: string) =>
           :key="item.path"
           :to="item.path"
           :class="['nav-item', { active: isActive(item.path) }]"
+          @click="emit('close')"
         >
           <div class="nav-icon-wrap">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -195,6 +203,32 @@ $admin-sidebar-width: 260px;
   @media (max-width: $bp-tablet) {
     transform: translateX(-100%);
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: $z-modal;
+    box-shadow: var(--shadow-lg);
+  }
+
+  &.admin-sidebar-open {
+    @media (max-width: $bp-tablet) {
+      transform: translateX(0);
+    }
+  }
+}
+
+// Close button — visible only on mobile inside admin sidebar
+.admin-sidebar-close {
+  display: none;
+  margin-left: auto;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+  &:hover { color: var(--text-1); }
+
+  @media (max-width: $bp-tablet) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }
 

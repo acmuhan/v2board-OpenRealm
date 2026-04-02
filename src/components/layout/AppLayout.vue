@@ -10,10 +10,11 @@ onMounted(async () => {
     try {
       await Promise.all([
         userStore.fetchInfo(),
-        userStore.fetchStat(),
         userStore.fetchSubscribe(),
       ])
     } catch { /* handled by interceptor */ }
+    // getStat may not exist on all v2board forks — already handles errors internally
+    userStore.fetchStat()
   }
 })
 </script>

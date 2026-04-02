@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useUserStore } from '../stores/user'
 import { noticeApi } from '../api'
 import SvgIcon from '../components/common/SvgIcon.vue'
@@ -8,6 +8,7 @@ const userStore = useUserStore()
 const notices = ref<any[]>([])
 const subLink = ref('')
 const copied = ref(false)
+const activeNotice = ref<any>(null)
 
 const planName = computed(() => userStore.subscribe?.plan?.name || 'Free')
 const isActive = computed(() => !!userStore.subscribe?.plan)
@@ -25,14 +26,22 @@ const chartMax = computed(() => Math.max(...chartData.value, 1))
 
 onMounted(async () => {
   try {
-    const [noticeRes]: any[] = await Promise.all([
-      noticeApi.list(),
-      userStore.fetchSubscribe().then(() => userStore.subscribe),
-    ])
+    const noticeRes: any = await noticeApi.list()
     notices.value = noticeRes?.data || []
-    subLink.value = userStore.subscribe?.subscribe_url || ''
   } catch { /* silent */ }
+  // subscribe_url comes from getSubscribe (already fetched by AppLayout)
+  subLink.value = userStore.subscribe?.subscribe_url || ''
 })
+
+// Keep subLink in sync if subscribe loads after mount
+watch(() => userStore.subscribe?.subscribe_url, (url) => {
+  if (url) subLink.value = url
+})
+
+// Escape key closes modal
+function onKeyDown(e: KeyboardEvent) { if (e.key === 'Escape') activeNotice.value = null }
+onMounted(() => document.addEventListener('keydown', onKeyDown))
+onUnmounted(() => document.removeEventListener('keydown', onKeyDown))
 
 function copyLink() {
   if (!subLink.value) return
@@ -109,8 +118,8 @@ function copyLink() {
           <span class="t-total">/ {{ userStore.formatBytes(userStore.totalTraffic) }}</span>
         </div>
         <div class="traffic-detail">
-          <span>&#8593; {{ userStore.formatBytes(userStore.info?.u || 0) }}</span>
-          <span>&#8595; {{ userStore.formatBytes(userStore.info?.d || 0) }}</span>
+          <span>&#8593; {{ userStore.formatBytes(userStore.subscribe?.u || 0) }}</span>
+          <span>&#8595; {{ userStore.formatBytes(userStore.subscribe?.d || 0) }}</span>
         </div>
       </div>
 
@@ -141,9 +150,15 @@ function copyLink() {
       <div class="bento-item card stagger-5" style="padding: 24px;">
         <span class="section-title">通知</span>
         <div v-if="notices.length" class="notice-list">
-          <div v-for="n in notices.slice(0, 4)" :key="n.id" class="notice-row">
+          <div
+            v-for="n in notices.slice(0, 4)"
+            :key="n.id"
+            class="notice-row clickable"
+            @click="activeNotice = n"
+          >
             <span class="n-dot"></span>
             <span class="n-text">{{ n.title }}</span>
+            <svg class="n-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
           </div>
         </div>
         <p v-else class="empty-text">暂无通知</p>
@@ -178,6 +193,21 @@ function copyLink() {
         </div>
       </div>
     </div>
+
+    <!-- Notice Modal — teleported to body so it overlays the sidebar too -->
+    <teleport to="body">
+      <transition name="fade-slide">
+        <div v-if="activeNotice" class="notice-modal-overlay" @click.self="activeNotice = null">
+          <div class="notice-modal">
+            <div class="notice-modal-header">
+              <h3>{{ activeNotice.title }}</h3>
+              <button class="notice-close" @click="activeNotice = null">✕</button>
+            </div>
+            <div class="notice-modal-body" v-html="activeNotice.content"></div>
+          </div>
+        </div>
+      </transition>
+    </teleport>
   </div>
 </template>
 
@@ -275,10 +305,52 @@ function copyLink() {
 
 // Notices
 .notice-list { display: flex; flex-direction: column; gap: 10px; }
-.notice-row { display: flex; align-items: center; gap: 8px; }
+.notice-row {
+  display: flex; align-items: center; gap: 8px;
+  &.clickable {
+    cursor: pointer; padding: 4px 6px; border-radius: 6px; margin: 0 -6px;
+    transition: background 0.12s;
+    &:hover { background: rgba(var(--brand-rgb), 0.06); }
+  }
+}
 .n-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--brand); flex-shrink: 0; }
-.n-text { font-size: 13px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.n-text { flex: 1; font-size: 13px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.n-arrow { color: var(--text-3); flex-shrink: 0; }
 .empty-text { font-size: 13px; color: var(--text-3); }
+
+// Notice modal
+.notice-modal-overlay {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.notice-modal {
+  width: 100%; max-width: 560px; max-height: 80vh;
+  background: var(--bg-1); border: 1px solid var(--border);
+  border-radius: 16px; box-shadow: var(--shadow-lg);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.notice-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+  h3 { font-size: 16px; font-weight: 600; color: var(--text-1); }
+}
+.notice-close {
+  width: 28px; height: 28px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--text-3); font-size: 14px;
+  transition: all 0.12s;
+  &:hover { background: rgba(255,255,255,0.06); color: var(--text-1); }
+}
+.notice-modal-body {
+  flex: 1; overflow-y: auto; padding: 20px 24px;
+  font-size: 14px; line-height: 1.7; color: var(--text-2);
+  :deep(img) { max-width: 100%; border-radius: 8px; }
+  :deep(a) { color: var(--brand-light); }
+  :deep(p) { margin-bottom: 12px; }
+}
 
 // Clients
 .client-row { display: flex; gap: 10px; flex-wrap: wrap; }

@@ -15,11 +15,11 @@ const userStore = useUserStore()
       </div>
       <div class="traffic-stat card stagger-3" style="padding: 24px; text-align: center;">
         <span class="stat-label">已用上行</span>
-        <span class="stat-value brand">{{ userStore.formatBytes(userStore.info?.u || 0) }}</span>
+        <span class="stat-value brand">{{ userStore.formatBytes(userStore.subscribe?.u || 0) }}</span>
       </div>
       <div class="traffic-stat card stagger-4" style="padding: 24px; text-align: center;">
         <span class="stat-label">已用下行</span>
-        <span class="stat-value accent">{{ userStore.formatBytes(userStore.info?.d || 0) }}</span>
+        <span class="stat-value accent">{{ userStore.formatBytes(userStore.subscribe?.d || 0) }}</span>
       </div>
       <div class="traffic-stat card stagger-5" style="padding: 24px; text-align: center;">
         <span class="stat-label">剩余流量</span>
@@ -67,4 +67,5 @@ const userStore = useUserStore()
 .bar-labels { display: flex; justify-content: space-between; margin-top: $gap-sm; font-size: 13px; color: var(--text-2); }
 
 @media (max-width: $bp-tablet) { .traffic-overview { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: $bp-mobile) { .traffic-overview { grid-template-columns: 1fr; } }
 </style>

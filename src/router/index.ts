@@ -74,6 +74,13 @@ const router = createRouter({
 // Navigation guard
 router.beforeEach((to, _from, next) => {
   const token = localStorage.getItem('or_token')
+  const adminPath = localStorage.getItem('or_admin_path')
+
+  // When user visits /{adminPath} (V2Board secure admin URL), route to /admin
+  if (adminPath && (to.path === `/${adminPath}` || to.path === `/${adminPath}/`)) {
+    return next(token ? '/admin' : '/login')
+  }
+
   if (to.meta.auth && !token) return next('/login')
   if (to.meta.guest && token) return next('/')
   next()

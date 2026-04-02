@@ -2,8 +2,10 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { authApi } from '../api'
+import { useUserStore } from '../stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 const email = ref('')
 const password = ref('')
 const loading = ref(false)
@@ -23,7 +25,7 @@ async function handleLogin() {
   error.value = ''
   try {
     const res: any = await authApi.login({ email: email.value, password: password.value })
-    localStorage.setItem('or_token', res.data.auth_data || res.data.token)
+    userStore.setLogin(res.data)
     router.push('/')
   } catch (e: any) {
     error.value = e?.message || '登录失败，请重试'

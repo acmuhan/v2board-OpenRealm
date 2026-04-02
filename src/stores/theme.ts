@@ -1,15 +1,23 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
-export type ThemeId = 'default' | 'emerald' | 'violet' | 'sunset' | 'rose' | 'cyan'
+export type ThemeId = 'default' | 'emerald' | 'violet' | 'sunset' | 'rose' | 'cyan' | 'midnight' | 'neon' | 'aurora' | 'gold' | 'sakura' | 'ocean' | 'forest' | 'crimson'
 
 export const themes: { id: ThemeId; name: string; colors: [string, string] }[] = [
-  { id: 'default', name: '深蓝', colors: ['#2563eb', '#10b981'] },
-  { id: 'emerald', name: '翡翠', colors: ['#059669', '#2563eb'] },
-  { id: 'violet', name: '紫罗兰', colors: ['#7c3aed', '#ec4899'] },
-  { id: 'sunset', name: '日落', colors: ['#ea580c', '#eab308'] },
-  { id: 'rose', name: '玫瑰', colors: ['#e11d48', '#a855f7'] },
-  { id: 'cyan', name: '青蓝', colors: ['#0891b2', '#14b8a6'] },
+  { id: 'default',  name: '深蓝',  colors: ['#2563eb', '#10b981'] },
+  { id: 'emerald',  name: '翡翠',  colors: ['#059669', '#2563eb'] },
+  { id: 'violet',   name: '紫罗兰', colors: ['#7c3aed', '#ec4899'] },
+  { id: 'sunset',   name: '日落',  colors: ['#ea580c', '#eab308'] },
+  { id: 'rose',     name: '玫瑰',  colors: ['#e11d48', '#a855f7'] },
+  { id: 'cyan',     name: '青蓝',  colors: ['#0891b2', '#14b8a6'] },
+  { id: 'midnight', name: '深夜',  colors: ['#a855f7', '#06b6d4'] },
+  { id: 'neon',     name: '霓虹',  colors: ['#22c55e', '#f0abfc'] },
+  { id: 'aurora',   name: '极光',  colors: ['#34d399', '#818cf8'] },
+  { id: 'gold',     name: '金色',  colors: ['#f59e0b', '#fb923c'] },
+  { id: 'sakura',   name: '樱花',  colors: ['#f472b6', '#fb7185'] },
+  { id: 'ocean',    name: '深海',  colors: ['#0ea5e9', '#6366f1'] },
+  { id: 'forest',   name: '森林',  colors: ['#16a34a', '#84cc16'] },
+  { id: 'crimson',  name: '深红',  colors: ['#dc2626', '#f97316'] },
 ]
 
 export const useThemeStore = defineStore('theme', () => {

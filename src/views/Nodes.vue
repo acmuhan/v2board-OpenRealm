@@ -12,10 +12,16 @@ onMounted(async () => {
   } finally { loading.value = false }
 })
 
+// V2Board returns is_online (0/1) — normalise to boolean
+function isOnline(node: any): boolean {
+  return !!(node.is_online || node.online)
+}
+
 const groups = computed(() => {
   const map = new Map<string, any[]>()
   for (const s of servers.value) {
-    const group = s.group_id || '默认'
+    const gid = s.group_id
+    const group = gid ? `节点组 ${gid}` : '默认'
     if (!map.has(group)) map.set(group, [])
     map.get(group)!.push(s)
   }
@@ -34,8 +40,8 @@ function rateClass(rate: number) {
     <div class="page-header stagger-1">
       <h1>节点状态</h1>
       <div class="node-summary" v-if="servers.length">
-        <span class="sum-item"><span class="sum-dot online"></span>{{ servers.filter(s => s.online).length }} 在线</span>
-        <span class="sum-item"><span class="sum-dot offline"></span>{{ servers.filter(s => !s.online).length }} 离线</span>
+        <span class="sum-item"><span class="sum-dot online"></span>{{ servers.filter(s => isOnline(s)).length }} 在线</span>
+        <span class="sum-item"><span class="sum-dot offline"></span>{{ servers.filter(s => !isOnline(s)).length }} 离线</span>
       </div>
     </div>
 
@@ -50,14 +56,14 @@ function rateClass(rate: number) {
             style="padding: 20px;">
             <div class="node-header">
               <div class="node-left">
-                <div :class="['status-dot', { online: node.online }]"></div>
+                <div :class="['status-dot', { online: isOnline(node) }]"></div>
                 <span class="node-name">{{ node.name }}</span>
               </div>
               <span :class="['node-rate', rateClass(node.rate)]">{{ node.rate }}x</span>
             </div>
             <div class="node-tags">
               <span class="or-tag info">{{ node.type || 'SS' }}</span>
-              <span v-if="node.online" class="or-tag success">在线</span>
+              <span v-if="isOnline(node)" class="or-tag success">在线</span>
               <span v-else class="or-tag danger">离线</span>
             </div>
           </div>
