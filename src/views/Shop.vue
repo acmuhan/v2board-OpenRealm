@@ -64,6 +64,20 @@ async function handleOrder() {
   } finally { ordering.value = false }
 }
 
+function planText(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&amp;/gi, '&')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 const planGradients = [
   'linear-gradient(135deg, rgba(var(--brand-rgb), 0.15), rgba(var(--accent-rgb), 0.05))',
   'linear-gradient(135deg, rgba(var(--accent-rgb), 0.15), rgba(var(--brand-rgb), 0.05))',
@@ -96,7 +110,7 @@ const planGradients = [
             &yen;{{ (plan.month_price / 100).toFixed(0) }}<small>/月起</small>
           </span>
         </div>
-        <p class="plan-desc" v-html="plan.content || '高速稳定的网络加速服务'"></p>
+        <p class="plan-desc">{{ plan.content ? planText(plan.content) : '高速稳定的网络加速服务' }}</p>
         <ul class="plan-features">
           <li v-if="plan.transfer_enable">
             流量: {{ (plan.transfer_enable / (1024*1024*1024)).toFixed(0) }} GB
@@ -180,7 +194,7 @@ const planGradients = [
   font-family: 'Space Grotesk', sans-serif;
   small { font-size: 12px; font-weight: 500; }
 }
-.plan-desc { font-size: 13px; color: var(--text-2); margin-bottom: $gap-md; }
+.plan-desc { font-size: 13px; color: var(--text-2); margin-bottom: $gap-md; white-space: pre-line; max-height: 80px; overflow: hidden; }
 .plan-features {
   list-style: none; margin-bottom: $gap-md;
   li { font-size: 13px; color: var(--text-2); padding: 4px 0; &::before { content: '+ '; color: var(--accent); font-weight: 700; } }

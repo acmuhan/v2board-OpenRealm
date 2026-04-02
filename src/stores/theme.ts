@@ -21,7 +21,9 @@ export const themes: { id: ThemeId; name: string; colors: [string, string] }[] =
 ]
 
 export const useThemeStore = defineStore('theme', () => {
-  const current = ref<ThemeId>((localStorage.getItem('or_theme') as ThemeId) || 'default')
+  const validIds = themes.map(t => t.id)
+  const stored = localStorage.getItem('or_theme') as ThemeId
+  const current = ref<ThemeId>(validIds.includes(stored) ? stored : 'default')
 
   function setTheme(id: ThemeId) {
     current.value = id

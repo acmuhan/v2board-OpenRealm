@@ -1,26 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
-import { useThemeStore, type ThemeId } from '../../stores/theme'
-
-interface ThemePreset {
-  name: string
-  label: string
-  brand: string
-  brandLight: string
-  accent: string
-  bg0: string
-  bg1: string
-  bg2: string
-}
-
-const presets: ThemePreset[] = [
-  { name: 'default', label: 'Default', brand: '#2563eb', brandLight: '#3b82f6', accent: '#10b981', bg0: '#070a10', bg1: '#0b0f18', bg2: '#101724' },
-  { name: 'emerald', label: 'Emerald', brand: '#059669', brandLight: '#10b981', accent: '#2563eb', bg0: '#070a10', bg1: '#0b0f18', bg2: '#101724' },
-  { name: 'violet', label: 'Violet', brand: '#7c3aed', brandLight: '#8b5cf6', accent: '#ec4899', bg0: '#070a10', bg1: '#0b0f18', bg2: '#101724' },
-  { name: 'sunset', label: 'Sunset', brand: '#ea580c', brandLight: '#f97316', accent: '#eab308', bg0: '#070a10', bg1: '#0b0f18', bg2: '#101724' },
-  { name: 'rose', label: 'Rose', brand: '#e11d48', brandLight: '#f43f5e', accent: '#a855f7', bg0: '#070a10', bg1: '#0b0f18', bg2: '#101724' },
-  { name: 'cyan', label: 'Cyan', brand: '#0891b2', brandLight: '#06b6d4', accent: '#14b8a6', bg0: '#070a10', bg1: '#0b0f18', bg2: '#101724' },
-]
+import { useThemeStore, themes, type ThemeId } from '../../stores/theme'
 
 const themeStore = useThemeStore()
 const activePreset = ref<string>(themeStore.current)
@@ -153,26 +133,25 @@ function importTheme(event: Event) {
 
       <div class="preset-grid">
         <div
-          v-for="(p, idx) in presets"
-          :key="p.name"
-          :class="['preset-card', 'card', `stagger-${idx + 3}`, { selected: activePreset === p.name }]"
-          @click="selectPreset(p.name)"
+          v-for="(t, idx) in themes"
+          :key="t.id"
+          :class="['preset-card', 'card', `stagger-${idx + 3}`, { selected: activePreset === t.id }]"
+          @click="selectPreset(t.id)"
         >
           <div class="preset-swatches">
-            <div class="swatch large" :style="{ background: p.brand }"></div>
-            <div class="swatch" :style="{ background: p.brandLight }"></div>
-            <div class="swatch" :style="{ background: p.accent }"></div>
-            <div class="swatch small" :style="{ background: p.bg2 }"></div>
+            <div class="swatch large" :style="{ background: t.colors[0] }"></div>
+            <div class="swatch" :style="{ background: t.colors[1] }"></div>
+            <div class="swatch small" :style="{ background: '#101724' }"></div>
           </div>
           <div class="preset-info">
-            <h3>{{ p.label }}</h3>
+            <h3>{{ t.name }}</h3>
             <div class="preset-colors">
-              <span class="color-hex">{{ p.brand }}</span>
-              <span class="color-hex">{{ p.accent }}</span>
+              <span class="color-hex">{{ t.colors[0] }}</span>
+              <span class="color-hex">{{ t.colors[1] }}</span>
             </div>
           </div>
-          <div class="preset-gradient" :style="{ background: `linear-gradient(135deg, ${p.brand}, ${p.accent})` }"></div>
-          <div v-if="activePreset === p.name" class="selected-badge">
+          <div class="preset-gradient" :style="{ background: `linear-gradient(135deg, ${t.colors[0]}, ${t.colors[1]})` }"></div>
+          <div v-if="activePreset === t.id" class="selected-badge">
             &#10003;
           </div>
         </div>
