@@ -70,10 +70,17 @@ async function closeTicket() {
 .loading-text { color: var(--text-3); }
 .detail-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: $gap-lg; h1 { font-size: 20px; font-weight: 700; } }
 .msg-list { display: flex; flex-direction: column; gap: $gap-md; margin-bottom: $gap-lg; }
-.msg-item { padding: $gap-md; &.admin { border-left: 3px solid var(--brand); } }
-.msg-header { display: flex; justify-content: space-between; margin-bottom: $gap-xs; }
+.msg-item {
+  padding: $gap-md;
+  max-width: 85%;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  &.admin { border-left: 3px solid var(--brand); align-self: flex-start; }
+  &:not(.admin) { align-self: flex-end; }
+}
+.msg-header { display: flex; justify-content: space-between; gap: $gap-md; margin-bottom: $gap-xs; }
 .msg-role { font-size: 13px; font-weight: 600; }
-.msg-time { font-size: 11px; color: var(--text-3); }
+.msg-time { font-size: 11px; color: var(--text-3); white-space: nowrap; }
 .msg-body { font-size: 14px; color: var(--text-2); line-height: 1.6; }
 .reply-box { padding: $gap-lg; }
 textarea.or-input { resize: vertical; min-height: 80px; }
