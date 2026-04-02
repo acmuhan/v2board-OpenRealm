@@ -244,6 +244,7 @@ export default {
     categories: 'Categories',
     searchPlaceholder: 'Search articles…',
     empty: 'No articles found',
+    noContent: 'No content',
   },
 
   // ─── User Panel — Settings ─────────────────────────────────

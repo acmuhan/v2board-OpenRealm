@@ -661,6 +661,8 @@ function getEditTabs() {
   flex-wrap: wrap;
   gap: $gap-md;
   margin-bottom: $gap-lg;
+  position: relative;
+  z-index: 2;
 
   h1 {
     font-size: 24px;

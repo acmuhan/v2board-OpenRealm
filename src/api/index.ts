@@ -70,7 +70,7 @@ export const orderApi = {
   detail: (tradeNo: string) => http.get('/user/order/detail', { params: { trade_no: tradeNo } }),
   check: (tradeNo: string) => http.get('/user/order/check', { params: { trade_no: tradeNo } }),
   getPaymentMethod: () => http.get('/user/order/getPaymentMethod'),
-  save: (data: { plan_id: number; cycle: string; coupon_code?: string }) =>
+  save: (data: { plan_id: number; period: string; coupon_code?: string }) =>
     http.post('/user/order/save', data),
   checkout: (tradeNo: string, method: number) =>
     http.post('/user/order/checkout', { trade_no: tradeNo, method }),

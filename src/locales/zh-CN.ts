@@ -244,6 +244,7 @@ export default {
     categories: '分类',
     searchPlaceholder: '搜索文档…',
     empty: '暂无文档',
+    noContent: '暂无内容',
   },
 
   // ─── User Panel — Settings ─────────────────────────────────

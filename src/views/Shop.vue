@@ -72,7 +72,7 @@ async function handleOrder() {
   try {
     const res: any = await orderApi.save({
       plan_id: selectedPlan.value.id,
-      cycle: selectedCycle.value,
+      period: selectedCycle.value,
       coupon_code: coupon.value || undefined,
     })
     const tradeNo = res.data

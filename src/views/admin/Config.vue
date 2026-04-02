@@ -31,12 +31,12 @@ const config = reactive({
   app_name: '',
   app_url: '',
   app_description: '',
-  logo_url: '',
+  logo: '',
   force_https: false,
   subscribe_url: '',
   // Register
   email_verify: false,
-  email_whitelist_suffix: '',
+  email_whitelist_suffix: '' as string, // stored as newline-separated, sent as array
   invite_force: false,
   invite_commission: 0,
   invite_gen_limit: 0,
@@ -45,7 +45,7 @@ const config = reactive({
   email_port: 465,
   email_username: '',
   email_password: '',
-  email_from: '',
+  email_from_address: '',
   email_template: 'default',
   // Subscribe
   subscribe_path: '',
@@ -56,10 +56,10 @@ const config = reactive({
   frontend_admin_path: '',
   frontend_background_url: '',
   // Client downloads
-  client_windows_url: '',
-  client_macos_url: '',
-  client_ios_url: '',
-  client_android_url: '',
+  windows_download_url: '',
+  macos_download_url: '',
+  ios_download_url: '',
+  android_download_url: '',
   // Telegram
   telegram_bot_enable: false,
   telegram_bot_token: '',
@@ -81,7 +81,11 @@ onMounted(async () => {
   try {
     const res = await adminConfigApi.fetch()
     if (res?.data) {
-      Object.assign(config, res.data)
+      const data = { ...res.data }
+      if (Array.isArray(data.email_whitelist_suffix)) {
+        data.email_whitelist_suffix = data.email_whitelist_suffix.join('\n')
+      }
+      Object.assign(config, data)
     }
     // Optionally load dynamic template lists
     const [emailTplRes, themeTplRes] = await Promise.allSettled([
@@ -103,7 +107,13 @@ onMounted(async () => {
 async function saveConfig() {
   saving.value = true
   try {
-    await adminConfigApi.save(config)
+    const payload = {
+      ...config,
+      email_whitelist_suffix: config.email_whitelist_suffix
+        ? config.email_whitelist_suffix.split('\n').map(s => s.trim()).filter(Boolean)
+        : [],
+    }
+    await adminConfigApi.save(payload)
     saved.value = true
     toast.success('配置保存成功')
     setTimeout(() => (saved.value = false), 2500)
@@ -122,7 +132,7 @@ async function testMail() {
       email_port: config.email_port,
       email_username: config.email_username,
       email_password: config.email_password,
-      email_from: config.email_from,
+      email_from_address: config.email_from_address,
     })
     toast.success('测试邮件已发送')
   } catch (e: any) {
@@ -194,7 +204,7 @@ async function setWebhook() {
             </div>
             <div class="form-group">
               <label>Logo URL</label>
-              <input v-model="config.logo_url" class="or-input" placeholder="/logo.svg" />
+              <input v-model="config.logo" class="or-input" placeholder="/logo.svg" />
             </div>
             <div class="form-group">
               <label>订阅 URL (可选覆盖)</label>
@@ -268,7 +278,7 @@ async function setWebhook() {
             </div>
             <div class="form-group">
               <label>发件人地址</label>
-              <input v-model="config.email_from" class="or-input" />
+              <input v-model="config.email_from_address" class="or-input" />
             </div>
             <div class="form-group">
               <label>邮件模板</label>
@@ -334,19 +344,19 @@ async function setWebhook() {
           <div class="form-grid">
             <div class="form-group">
               <label>Windows 下载链接</label>
-              <input v-model="config.client_windows_url" class="or-input" placeholder="https://..." />
+              <input v-model="config.windows_download_url" class="or-input" placeholder="https://..." />
             </div>
             <div class="form-group">
               <label>macOS 下载链接</label>
-              <input v-model="config.client_macos_url" class="or-input" placeholder="https://..." />
+              <input v-model="config.macos_download_url" class="or-input" placeholder="https://..." />
             </div>
             <div class="form-group">
               <label>iOS 下载链接</label>
-              <input v-model="config.client_ios_url" class="or-input" placeholder="https://apps.apple.com/..." />
+              <input v-model="config.ios_download_url" class="or-input" placeholder="https://apps.apple.com/..." />
             </div>
             <div class="form-group">
               <label>Android 下载链接</label>
-              <input v-model="config.client_android_url" class="or-input" placeholder="https://play.google.com/..." />
+              <input v-model="config.android_download_url" class="or-input" placeholder="https://play.google.com/..." />
             </div>
           </div>
         </div>

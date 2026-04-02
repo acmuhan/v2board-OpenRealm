@@ -3,8 +3,10 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminNoticeApi } from '../../api/admin'
 import MarkdownRenderer from '../../components/common/MarkdownRenderer.vue'
+import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
+const toast = useToastStore()
 
 /* ── Types ── */
 interface Notice {
@@ -20,6 +22,7 @@ interface Notice {
 /* ── State ── */
 const showModal = ref(false)
 const showPreview = ref(false)
+const saving = ref(false)
 const editingId = ref<number | null>(null)
 const confirmDeleteId = ref<number | null>(null)
 
@@ -65,17 +68,25 @@ function openEdit(n: Notice) {
 }
 
 async function saveNotice() {
+  saving.value = true
   const payload: Record<string, unknown> = {
     title: form.value.title,
     content: form.value.content,
     img_url: form.value.img_url,
-    tags: form.value.tags.split(',').map(t => t.trim()).filter(Boolean),
+    tags: form.value.tags.split(',').map(s => s.trim()).filter(Boolean),
   }
 
   if (editingId.value !== null) payload.id = editingId.value
-  try { await adminNoticeApi.save(payload) } catch { /* ignore */ }
-  showModal.value = false
-  await loadNotices()
+  try {
+    await adminNoticeApi.save(payload)
+    toast.success(editingId.value ? t('admin.notices.saveChanges') : t('admin.notices.createNotice'))
+    showModal.value = false
+    await loadNotices()
+  } catch (e: any) {
+    toast.error(e?.message || t('common.error') || '保存失败')
+  } finally {
+    saving.value = false
+  }
 }
 
 async function toggleVisibility(n: Notice) {
@@ -196,9 +207,9 @@ function formatDate(ts: number) {
               <button class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
               <button
                 class="btn-primary"
-                :disabled="!form.title.trim()"
+                :disabled="!form.title.trim() || saving"
                 @click="saveNotice"
-              >{{ editingId ? t('admin.notices.saveChanges') : t('admin.notices.createNotice') }}</button>
+              >{{ saving ? '...' : (editingId ? t('admin.notices.saveChanges') : t('admin.notices.createNotice')) }}</button>
             </div>
           </div>
         </div>
