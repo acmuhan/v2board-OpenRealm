@@ -165,7 +165,7 @@ const planGradients = [
 .loading-text { color: var(--text-3); }
 
 .plan-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
   gap: $gap-md; margin-bottom: $gap-xl;
 }
 .plan-card {

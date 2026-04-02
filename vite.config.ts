@@ -29,6 +29,15 @@ export default defineConfig(({ command }) => ({
           if (assetInfo.name?.endsWith('.css')) return 'assets/app.css'
           return 'assets/[hash].[ext]'
         },
+        manualChunks(id) {
+          if (id.includes('/node_modules/vue/') || id.includes('/node_modules/vue-router/') ||
+              id.includes('/node_modules/pinia/') || id.includes('/node_modules/axios/')) {
+            return 'vendor'
+          }
+          if (id.includes('/views/admin/') || id.includes('/components/layout/Admin')) {
+            return 'admin'
+          }
+        },
       },
     },
   },

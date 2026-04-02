@@ -70,45 +70,8 @@ const protocolTagClass: Record<string, string> = {
   anytls: 'warning',
 }
 
-// ── Mock Data ──────────────────────────────────
-const mockServers: ServerNode[] = [
-  {
-    id: 1, name: '香港 IPLC 01', type: 'vmess', host: 'hk01.example.com', port: 443,
-    server_port: 443, rate: 1, show: true, sort: 1, online: true, online_count: 42,
-    group_id: 1, group_name: '亚洲节点', tags: ['Premium'], network: 'ws', security: 'tls',
-  },
-  {
-    id: 2, name: '日本 BGP 01', type: 'vless', host: 'jp01.example.com', port: 443,
-    server_port: 443, rate: 1, show: true, sort: 2, online: true, online_count: 38,
-    group_id: 1, group_name: '亚洲节点', tags: ['XTLS'], flow: 'xtls-rprx-vision', security: 'reality',
-  },
-  {
-    id: 3, name: '新加坡 SS 01', type: 'shadowsocks', host: 'sg01.example.com', port: 8388,
-    server_port: 8388, rate: 0.5, show: true, sort: 3, online: true, online_count: 56,
-    group_id: 1, group_name: '亚洲节点', tags: [], cipher: 'aes-256-gcm',
-  },
-  {
-    id: 4, name: '美国 Trojan 01', type: 'trojan', host: 'us01.example.com', port: 443,
-    server_port: 443, rate: 1.5, show: true, sort: 4, online: false, online_count: 0,
-    group_id: 2, group_name: '欧美节点', tags: ['GRPC'], server_name: 'us01.example.com', allow_insecure: false,
-  },
-  {
-    id: 5, name: '德国 Hysteria 01', type: 'hysteria', host: 'de01.example.com', port: 443,
-    server_port: 443, rate: 1, show: true, sort: 5, online: true, online_count: 23,
-    group_id: 2, group_name: '欧美节点', tags: ['UDP'], up_mbps: 100, down_mbps: 100,
-  },
-  {
-    id: 6, name: '台湾 TUIC 01', type: 'tuic', host: 'tw01.example.com', port: 443,
-    server_port: 443, rate: 1, show: false, sort: 6, online: true, online_count: 15,
-    group_id: 3, group_name: '测试节点', tags: ['QUIC'], congestion_control: 'bbr',
-  },
-]
-
-const mockGroups: ServerGroup[] = [
-  { id: 1, name: '亚洲节点' },
-  { id: 2, name: '欧美节点' },
-  { id: 3, name: '测试节点' },
-]
+// ── Error State ────────────────────────────────
+const loadError = ref('')
 
 // ── Computed ───────────────────────────────────
 const filteredServers = computed(() => {
@@ -126,30 +89,31 @@ const onlineCount = computed(() => servers.value.filter(s => s.online).length)
 const offlineCount = computed(() => servers.value.filter(s => !s.online).length)
 
 // ── Lifecycle ──────────────────────────────────
-onMounted(async () => {
+async function loadNodes() {
+  loading.value = true
+  loadError.value = ''
   try {
-    // Attempt to fetch real data
     const [nodeRes, groupRes] = await Promise.allSettled([
       adminServerApi.getNodes(),
       adminServerApi.groupFetch(),
     ])
-    if (nodeRes.status === 'fulfilled' && (nodeRes.value as any)?.data) {
-      servers.value = (nodeRes.value as any).data
-    } else {
-      servers.value = mockServers
-    }
-    if (groupRes.status === 'fulfilled' && (groupRes.value as any)?.data) {
-      groups.value = (groupRes.value as any).data
-    } else {
-      groups.value = mockGroups
-    }
+    servers.value = nodeRes.status === 'fulfilled' && (nodeRes.value as any)?.data
+      ? (nodeRes.value as any).data
+      : []
+    groups.value = groupRes.status === 'fulfilled' && (groupRes.value as any)?.data
+      ? (groupRes.value as any).data
+      : []
+    if (nodeRes.status === 'rejected') loadError.value = '节点数据加载失败'
   } catch {
-    servers.value = mockServers
-    groups.value = mockGroups
+    loadError.value = '节点数据加载失败'
+    servers.value = []
+    groups.value = []
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(() => loadNodes())
 
 // ── Actions ────────────────────────────────────
 function openAdd(protocol: Protocol) {
@@ -198,32 +162,9 @@ async function saveNode() {
   try {
     await apiMap[proto](editingNode.value)
     closeModal()
-    // Reload
     const res: any = await adminServerApi.getNodes()
     if (res?.data) servers.value = res.data
   } catch {
-    // For mock mode, update locally
-    if (isNew.value) {
-      const newId = Math.max(...servers.value.map(s => s.id), 0) + 1
-      const group = groups.value.find(g => g.id === editingNode.value!.group_id)
-      servers.value.push({
-        ...editingNode.value as ServerNode,
-        id: newId,
-        online: true,
-        online_count: 0,
-        group_name: group?.name || '默认',
-      })
-    } else {
-      const idx = servers.value.findIndex(s => s.id === editingNode.value!.id)
-      if (idx >= 0) {
-        const group = groups.value.find(g => g.id === editingNode.value!.group_id)
-        servers.value[idx] = {
-          ...servers.value[idx],
-          ...editingNode.value as ServerNode,
-          group_name: group?.name || servers.value[idx].group_name,
-        }
-      }
-    }
     closeModal()
   }
 }
@@ -244,8 +185,7 @@ async function copyNode(node: ServerNode) {
     const res: any = await adminServerApi.getNodes()
     if (res?.data) servers.value = res.data
   } catch {
-    const newId = Math.max(...servers.value.map(s => s.id), 0) + 1
-    servers.value.push({ ...node, id: newId, name: `${node.name} (副本)` })
+    // silent
   }
 }
 
@@ -269,7 +209,7 @@ async function deleteNode(node: ServerNode) {
     const res: any = await adminServerApi.getNodes()
     if (res?.data) servers.value = res.data
   } catch {
-    servers.value = servers.value.filter(s => s.id !== node.id)
+    // silent
   }
   confirmDeleteId.value = null
 }
@@ -367,8 +307,12 @@ function getEditTabs() {
       </div>
     </div>
 
-    <!-- Loading -->
+    <!-- Loading / Error -->
     <div v-if="loading" class="loading-text stagger-2">加载中...</div>
+    <div v-else-if="loadError" class="error-state stagger-2">
+      <p>{{ loadError }}</p>
+      <button class="btn-ghost" style="padding:6px 16px;font-size:13px" @click="loadNodes">重新加载</button>
+    </div>
 
     <!-- Server List -->
     <div v-else class="server-grid">
@@ -1109,6 +1053,15 @@ select.or-input {
 .loading-text {
   color: var(--text-3);
   padding: $gap-xl;
+}
+
+.error-state {
+  display: flex;
+  align-items: center;
+  gap: $gap-md;
+  padding: $gap-xl;
+  color: var(--danger);
+  font-size: 14px;
 }
 
 .empty-state {

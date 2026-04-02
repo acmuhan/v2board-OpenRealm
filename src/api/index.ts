@@ -24,6 +24,10 @@ http.interceptors.response.use(
       localStorage.removeItem('or_token')
       window.location.href = '/login'
     }
+    if (err.response?.status === 403) {
+      localStorage.removeItem('or_is_admin')
+      window.location.href = '/'
+    }
     return Promise.reject(err.response?.data || err)
   }
 )

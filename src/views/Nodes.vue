@@ -4,6 +4,7 @@ import { serverApi } from '../api'
 
 const servers = ref<any[]>([])
 const loading = ref(true)
+const sortBy = ref<'default' | 'online' | 'name'>('default')
 
 onMounted(async () => {
   try {
@@ -25,6 +26,20 @@ const groups = computed(() => {
     if (!map.has(group)) map.set(group, [])
     map.get(group)!.push(s)
   }
+
+  // Sort within each group
+  if (sortBy.value !== 'default') {
+    map.forEach((nodes, key) => {
+      const sorted = [...nodes].sort((a, b) => {
+        if (sortBy.value === 'online') {
+          return Number(isOnline(b)) - Number(isOnline(a))
+        }
+        return a.name.localeCompare(b.name, 'zh')
+      })
+      map.set(key, sorted)
+    })
+  }
+
   return map
 })
 
@@ -39,9 +54,16 @@ function rateClass(rate: number) {
   <div class="nodes-page">
     <div class="page-header stagger-1">
       <h1>节点状态</h1>
-      <div class="node-summary" v-if="servers.length">
-        <span class="sum-item"><span class="sum-dot online"></span>{{ servers.filter(s => isOnline(s)).length }} 在线</span>
-        <span class="sum-item"><span class="sum-dot offline"></span>{{ servers.filter(s => !isOnline(s)).length }} 离线</span>
+      <div class="header-right">
+        <div class="node-summary" v-if="servers.length">
+          <span class="sum-item"><span class="sum-dot online"></span>{{ servers.filter(s => isOnline(s)).length }} 在线</span>
+          <span class="sum-item"><span class="sum-dot offline"></span>{{ servers.filter(s => !isOnline(s)).length }} 离线</span>
+        </div>
+        <div class="sort-btns" v-if="servers.length">
+          <button :class="['sort-btn', { active: sortBy === 'default' }]" @click="sortBy = 'default'">默认</button>
+          <button :class="['sort-btn', { active: sortBy === 'online' }]" @click="sortBy = 'online'">在线优先</button>
+          <button :class="['sort-btn', { active: sortBy === 'name' }]" @click="sortBy = 'name'">名称</button>
+        </div>
       </div>
     </div>
 
@@ -81,8 +103,12 @@ function rateClass(rate: number) {
 @use '../assets/styles/variables' as *;
 
 .page-header {
-  display: flex; justify-content: space-between; align-items: center; margin-bottom: $gap-lg;
+  display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: $gap-lg;
+  flex-wrap: wrap; gap: $gap-md;
   h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+}
+.header-right {
+  display: flex; align-items: center; gap: $gap-md; flex-wrap: wrap;
 }
 .node-summary { display: flex; gap: $gap-md; }
 .sum-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-2); }
@@ -91,6 +117,23 @@ function rateClass(rate: number) {
   &.online { background: var(--accent); box-shadow: 0 0 6px rgba(var(--accent-rgb), 0.5); }
   &.offline { background: var(--danger); }
 }
+
+.sort-btns {
+  display: flex; gap: 4px;
+}
+.sort-btn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--text-3);
+  transition: all 0.15s;
+  &:hover { color: var(--text-2); border-color: var(--border-active); }
+  &.active { background: rgba(var(--brand-rgb), 0.12); color: var(--brand-light); border-color: rgba(var(--brand-rgb), 0.3); }
+}
+
 .loading-text { color: var(--text-3); }
 
 .node-group { margin-bottom: $gap-xl; }

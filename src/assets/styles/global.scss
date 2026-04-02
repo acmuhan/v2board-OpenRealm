@@ -1,5 +1,5 @@
 @use 'variables' as *;
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.bunny.net/css?family=space-grotesk:400,500,600,700|dm-sans:400,500,600,700|jetbrains-mono:400,500&display=swap');
 
 // ============================================
 // Theme System — CSS Custom Properties
@@ -122,10 +122,15 @@
 // Global Reset
 // ============================================
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  // Smooth theme transitions
+  transition: background-color 0.3s ease;
+}
 
 body {
-  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   background: var(--bg-0);
   color: var(--text-1);
   min-height: 100vh;
@@ -134,8 +139,13 @@ body {
 }
 
 h1, h2, h3, h4 {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Space Grotesk', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   line-height: 1.2;
+}
+
+// Theme-switch fade: applied to key containers
+.sidebar, .admin-sidebar, .admin-layout, .app-layout, body {
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 a { color: var(--brand-light); text-decoration: none; transition: color 0.15s; &:hover { color: var(--brand); } }
@@ -145,6 +155,23 @@ input, textarea, select { font-family: inherit; outline: none; }
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--text-3); border-radius: 3px; }
+
+// Table scroll hint — fades right edge on mobile to indicate horizontal scroll
+.table-wrap {
+  position: relative;
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 32px;
+    background: linear-gradient(to right, transparent, var(--bg-card));
+    pointer-events: none;
+    border-radius: 0 12px 12px 0;
+    @media (min-width: 1024px) { display: none; }
+  }
+}
 
 // ============================================
 // Animated Card

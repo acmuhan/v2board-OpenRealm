@@ -19,39 +19,25 @@ const editingRoute = ref<Partial<ServerRoute> | null>(null)
 const isNew = ref(false)
 const confirmDeleteId = ref<number | null>(null)
 
-// ── Mock Data ──────────────────────────────────
-const mockRoutes: ServerRoute[] = [
-  {
-    id: 1,
-    remarks: '中国大陆回国线路',
-    match: '(geoip:cn|geosite:cn)',
-    action: 'direct',
-    enabled: true,
-  },
-  {
-    id: 2,
-    remarks: '广告拦截规则',
-    match: '(geosite:category-ads-all)',
-    action: 'reject',
-    enabled: true,
-  },
-]
+// ── Error State ────────────────────────────────
+const error = ref('')
 
 // ── Lifecycle ──────────────────────────────────
-onMounted(async () => {
+async function loadRoutes() {
+  loading.value = true
+  error.value = ''
   try {
     const res: any = await adminServerApi.routeFetch()
-    if (res?.data) {
-      routes.value = res.data
-    } else {
-      routes.value = mockRoutes
-    }
+    routes.value = res?.data || []
   } catch {
-    routes.value = mockRoutes
+    error.value = '加载失败，请刷新重试'
+    routes.value = []
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(() => loadRoutes())
 
 // ── Actions ────────────────────────────────────
 function openAdd() {
@@ -83,17 +69,9 @@ async function saveRoute() {
 
   try {
     await adminServerApi.routeSave(data)
-    const res: any = await adminServerApi.routeFetch()
-    if (res?.data) routes.value = res.data
+    await loadRoutes()
   } catch {
-    // Mock fallback
-    if (isNew.value) {
-      const newId = Math.max(...routes.value.map(r => r.id), 0) + 1
-      routes.value.push({ ...data, id: newId } as ServerRoute)
-    } else {
-      const idx = routes.value.findIndex(r => r.id === data.id)
-      if (idx >= 0) routes.value[idx] = { ...routes.value[idx], ...data } as ServerRoute
-    }
+    // silent
   }
 
   closeModal()
@@ -107,10 +85,9 @@ async function deleteRoute(route: ServerRoute) {
 
   try {
     await adminServerApi.routeDrop({ id: route.id })
-    const res: any = await adminServerApi.routeFetch()
-    if (res?.data) routes.value = res.data
+    await loadRoutes()
   } catch {
-    routes.value = routes.value.filter(r => r.id !== route.id)
+    // silent
   }
 
   confirmDeleteId.value = null
@@ -154,8 +131,12 @@ function actionTagClass(action: string): string {
       </button>
     </div>
 
-    <!-- Loading -->
+    <!-- Loading / Error -->
     <div v-if="loading" class="loading-text stagger-2">加载中...</div>
+    <div v-else-if="error" class="error-state stagger-2">
+      <p>{{ error }}</p>
+      <button class="btn-ghost btn-sm" @click="loadRoutes">重新加载</button>
+    </div>
 
     <!-- Routes Table -->
     <div v-else class="table-wrap card stagger-2">
@@ -610,6 +591,15 @@ function actionTagClass(action: string): string {
 .loading-text {
   color: var(--text-3);
   padding: $gap-xl;
+}
+
+.error-state {
+  display: flex;
+  align-items: center;
+  gap: $gap-md;
+  padding: $gap-xl;
+  color: var(--danger);
+  font-size: 14px;
 }
 
 // ── Responsive ─────────────────────────────

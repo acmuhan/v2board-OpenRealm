@@ -19,32 +19,27 @@ const showAddInput = ref(false)
 const newGroupName = ref('')
 const confirmDeleteId = ref<number | null>(null)
 
-// ── Mock Data ──────────────────────────────────
-const mockGroups: ServerGroup[] = [
-  { id: 1, name: '亚洲节点', node_count: 8 },
-  { id: 2, name: '欧美节点', node_count: 5 },
-  { id: 3, name: '测试节点', node_count: 2 },
-]
+// ── Error State ────────────────────────────────
+const error = ref('')
 
 // ── Lifecycle ──────────────────────────────────
-onMounted(async () => {
+async function loadGroups() {
+  loading.value = true
+  error.value = ''
   try {
     const res: any = await adminServerApi.groupFetch()
-    if (res?.data) {
-      groups.value = res.data.map((g: any) => ({
-        ...g,
-        editing: false,
-        editName: g.name,
-      }))
-    } else {
-      groups.value = mockGroups.map(g => ({ ...g, editing: false, editName: g.name }))
-    }
+    groups.value = res?.data
+      ? res.data.map((g: any) => ({ ...g, editing: false, editName: g.name }))
+      : []
   } catch {
-    groups.value = mockGroups.map(g => ({ ...g, editing: false, editName: g.name }))
+    error.value = '加载失败，请刷新重试'
+    groups.value = []
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(() => loadGroups())
 
 // ── Actions ────────────────────────────────────
 async function addGroup() {
@@ -53,20 +48,9 @@ async function addGroup() {
 
   try {
     await adminServerApi.groupSave({ name })
-    const res: any = await adminServerApi.groupFetch()
-    if (res?.data) {
-      groups.value = res.data.map((g: any) => ({ ...g, editing: false, editName: g.name }))
-    }
+    await loadGroups()
   } catch {
-    // Mock fallback
-    const newId = Math.max(...groups.value.map(g => g.id), 0) + 1
-    groups.value.push({
-      id: newId,
-      name,
-      node_count: 0,
-      editing: false,
-      editName: name,
-    })
+    // silent — reload will reflect actual state
   }
 
   newGroupName.value = ''
@@ -115,12 +99,9 @@ async function deleteGroup(group: ServerGroup) {
 
   try {
     await adminServerApi.groupDrop({ id: group.id })
-    const res: any = await adminServerApi.groupFetch()
-    if (res?.data) {
-      groups.value = res.data.map((g: any) => ({ ...g, editing: false, editName: g.name }))
-    }
+    await loadGroups()
   } catch {
-    groups.value = groups.value.filter(g => g.id !== group.id)
+    // silent
   }
 
   confirmDeleteId.value = null
@@ -179,8 +160,12 @@ function handleAddKeydown(e: KeyboardEvent) {
       </div>
     </Transition>
 
-    <!-- Loading -->
+    <!-- Loading / Error -->
     <div v-if="loading" class="loading-text stagger-2">加载中...</div>
+    <div v-else-if="error" class="error-state stagger-2">
+      <p>{{ error }}</p>
+      <button class="btn-ghost btn-sm" @click="loadGroups">重新加载</button>
+    </div>
 
     <!-- Group List -->
     <div v-else class="group-list">
@@ -477,6 +462,15 @@ function handleAddKeydown(e: KeyboardEvent) {
 .loading-text {
   color: var(--text-3);
   padding: $gap-xl;
+}
+
+.error-state {
+  display: flex;
+  align-items: center;
+  gap: $gap-md;
+  padding: $gap-xl;
+  color: var(--danger);
+  font-size: 14px;
 }
 
 // ── Responsive ─────────────────────────────

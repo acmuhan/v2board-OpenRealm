@@ -191,7 +191,7 @@ $admin-sidebar-width: 260px;
   position: fixed;
   left: 0;
   top: 0;
-  width: $admin-sidebar-width;
+  width: min($admin-sidebar-width, 85vw);
   height: 100vh;
   background: var(--bg-1);
   border-right: 1px solid var(--border);
