@@ -1,21 +1,23 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { adminConfigApi } from '../../api/admin'
+import { useToastStore } from '../../stores/toast'
+
+const toast = useToastStore()
 
 interface TabDef {
   key: string
   label: string
-  icon: string
 }
 
 const tabs: TabDef[] = [
-  { key: 'site', label: '站点', icon: '&#9671;' },
-  { key: 'register', label: '注册', icon: '&#9998;' },
-  { key: 'email', label: '邮件', icon: '&#9993;' },
-  { key: 'subscribe', label: '订阅', icon: '&#9889;' },
-  { key: 'frontend', label: '前端', icon: '&#9783;' },
-  { key: 'telegram', label: 'Telegram', icon: '&#9992;' },
-  { key: 'security', label: '安全', icon: '&#9888;' },
+  { key: 'site', label: '站点' },
+  { key: 'register', label: '注册' },
+  { key: 'email', label: '邮件' },
+  { key: 'subscribe', label: '订阅' },
+  { key: 'frontend', label: '前端' },
+  { key: 'telegram', label: 'Telegram' },
+  { key: 'security', label: '安全' },
 ]
 
 const activeTab = ref('site')
@@ -53,6 +55,11 @@ const config = reactive({
   frontend_theme: 'OpenRealm',
   frontend_admin_path: '',
   frontend_background_url: '',
+  // Client downloads
+  client_windows_url: '',
+  client_macos_url: '',
+  client_ios_url: '',
+  client_android_url: '',
   // Telegram
   telegram_bot_enable: false,
   telegram_bot_token: '',
@@ -67,6 +74,8 @@ const config = reactive({
 
 const emailTemplates = ref(['default', 'modern', 'minimal', 'custom'])
 const frontendThemes = ref(['OpenRealm', 'V2Board', 'Starter', 'Custom'])
+
+const fetchError = ref('')
 
 onMounted(async () => {
   try {
@@ -85,8 +94,9 @@ onMounted(async () => {
     if (themeTplRes.status === 'fulfilled' && Array.isArray(themeTplRes.value?.data)) {
       frontendThemes.value = themeTplRes.value.data
     }
-  } catch {
-    // config stays at empty defaults if load fails
+  } catch (e: any) {
+    fetchError.value = e?.message || '配置加载失败，请刷新重试'
+    toast.error(fetchError.value)
   }
 })
 
@@ -95,9 +105,10 @@ async function saveConfig() {
   try {
     await adminConfigApi.save(config)
     saved.value = true
+    toast.success('配置保存成功')
     setTimeout(() => (saved.value = false), 2500)
   } catch (e: any) {
-    alert(e?.message || '保存失败，请重试')
+    toast.error(e?.message || '保存失败，请重试')
   } finally {
     saving.value = false
   }
@@ -113,9 +124,9 @@ async function testMail() {
       email_password: config.email_password,
       email_from: config.email_from,
     })
-    alert('测试邮件已发送')
+    toast.success('测试邮件已发送')
   } catch (e: any) {
-    alert(e?.message || '发送失败，请检查邮件配置')
+    toast.error(e?.message || '发送失败，请检查邮件配置')
   } finally {
     testingMail.value = false
   }
@@ -125,9 +136,9 @@ async function setWebhook() {
   settingWebhook.value = true
   try {
     await adminConfigApi.setTelegramWebhook({ token: config.telegram_bot_token })
-    alert('Webhook 设置成功')
+    toast.success('Webhook 设置成功')
   } catch (e: any) {
-    alert(e?.message || '设置失败，请检查 Bot Token')
+    toast.error(e?.message || '设置失败，请检查 Bot Token')
   } finally {
     settingWebhook.value = false
   }
@@ -143,6 +154,13 @@ async function setWebhook() {
       </div>
     </div>
 
+    <!-- Fetch error banner -->
+    <div v-if="fetchError" class="fetch-error">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      {{ fetchError }}
+      <button class="btn-ghost btn-sm" @click="fetchError = ''; $forceUpdate()">Retry</button>
+    </div>
+
     <div class="config-layout stagger-2">
       <!-- Tabs sidebar -->
       <nav class="tab-nav card">
@@ -152,7 +170,6 @@ async function setWebhook() {
           :class="['tab-btn', { active: activeTab === tab.key }]"
           @click="activeTab = tab.key"
         >
-          <span class="tab-icon" v-html="tab.icon"></span>
           <span>{{ tab.label }}</span>
         </button>
       </nav>
@@ -311,6 +328,27 @@ async function setWebhook() {
               <input v-model="config.frontend_background_url" class="or-input" placeholder="https://..." />
             </div>
           </div>
+
+          <h3 class="sub-panel-title">客户端下载地址</h3>
+          <p class="sub-panel-desc">用于教程页显示"下载客户端"按钮，留空则不显示</p>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Windows 下载链接</label>
+              <input v-model="config.client_windows_url" class="or-input" placeholder="https://..." />
+            </div>
+            <div class="form-group">
+              <label>macOS 下载链接</label>
+              <input v-model="config.client_macos_url" class="or-input" placeholder="https://..." />
+            </div>
+            <div class="form-group">
+              <label>iOS 下载链接</label>
+              <input v-model="config.client_ios_url" class="or-input" placeholder="https://apps.apple.com/..." />
+            </div>
+            <div class="form-group">
+              <label>Android 下载链接</label>
+              <input v-model="config.client_android_url" class="or-input" placeholder="https://play.google.com/..." />
+            </div>
+          </div>
         </div>
 
         <!-- TELEGRAM -->
@@ -415,6 +453,24 @@ async function setWebhook() {
   gap: $gap-md;
   align-items: start;
 }
+
+// Fetch error banner
+.fetch-error {
+  display: flex; align-items: center; gap: $gap-sm;
+  padding: $gap-md $gap-lg; margin-bottom: $gap-md;
+  background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: $card-radius; color: var(--danger); font-size: 13px;
+  svg { flex-shrink: 0; }
+}
+
+.sub-panel-title {
+  font-size: 15px; font-weight: 600; margin-top: $gap-lg; margin-bottom: 4px;
+}
+.sub-panel-desc {
+  font-size: 12px; color: var(--text-3); margin-bottom: $gap-md;
+}
+
+.btn-sm { padding: 5px 12px; font-size: 12px; }
 
 // Tab Nav
 .tab-nav {

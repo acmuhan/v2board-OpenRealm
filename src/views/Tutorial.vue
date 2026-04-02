@@ -1,14 +1,21 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { knowledgeApi } from '../api'
+import { knowledgeApi, commApi } from '../api'
 import SvgIcon from '../components/common/SvgIcon.vue'
+import MarkdownRenderer from '../components/common/MarkdownRenderer.vue'
 
-// Fallback static tutorials if V2Board has no knowledge articles
+interface DownloadLinks { windows?: string; macos?: string; ios?: string; android?: string }
+const downloads = ref<DownloadLinks>({})
+
 const staticTutorials = [
-  { platform: 'Windows', icon: 'windows', steps: ['下载 Clash Verge Rev 客户端', '复制订阅链接', '打开客户端 → 配置 → 导入订阅链接', '开启系统代理'] },
-  { platform: 'iOS', icon: 'apple', steps: ['App Store 搜索 Shadowrocket (需海外ID)', '复制订阅链接', '打开 Shadowrocket → 添加节点 → 粘贴订阅', '连接节点'] },
-  { platform: 'Android', icon: 'android', steps: ['下载 Clash Meta for Android', '复制订阅链接', '打开应用 → 配置 → 从URL导入', '选择节点并连接'] },
-  { platform: 'macOS', icon: 'macos', steps: ['下载 Clash Verge Rev 客户端', '复制订阅链接', '打开客户端 → 配置 → 导入订阅链接', '开启系统代理'] },
+  { platform: 'Windows', icon: 'windows', dlKey: 'windows' as keyof DownloadLinks,
+    steps: ['下载 Clash Verge Rev 客户端', '复制订阅链接', '打开客户端 → 配置 → 导入订阅链接', '开启系统代理'] },
+  { platform: 'iOS', icon: 'apple', dlKey: 'ios' as keyof DownloadLinks,
+    steps: ['App Store 搜索 Shadowrocket (需海外ID)', '复制订阅链接', '打开 Shadowrocket → 添加节点 → 粘贴订阅', '连接节点'] },
+  { platform: 'Android', icon: 'android', dlKey: 'android' as keyof DownloadLinks,
+    steps: ['下载 Clash Meta for Android', '复制订阅链接', '打开应用 → 配置 → 从URL导入', '选择节点并连接'] },
+  { platform: 'macOS', icon: 'macos', dlKey: 'macos' as keyof DownloadLinks,
+    steps: ['下载 Clash Verge Rev 客户端', '复制订阅链接', '打开客户端 → 配置 → 导入订阅链接', '开启系统代理'] },
 ]
 
 const articles = ref<any[]>([])
@@ -16,6 +23,18 @@ const selectedId = ref<number | null>(null)
 const loading = ref(true)
 
 onMounted(async () => {
+  // Fetch client download links from backend guest config
+  try {
+    const cfgRes: any = await commApi.config()
+    const cfg = cfgRes.data || {}
+    downloads.value = {
+      windows: cfg.client_windows_url || cfg.windows_download_url || '',
+      macos:   cfg.client_macos_url   || cfg.macos_download_url   || '',
+      ios:     cfg.client_ios_url     || cfg.ios_download_url     || '',
+      android: cfg.client_android_url || cfg.android_download_url || '',
+    }
+  } catch { /* no config, no links */ }
+
   try {
     const res: any = await knowledgeApi.list()
     articles.value = res.data || []
@@ -55,7 +74,9 @@ async function toggleArticle(id: number) {
             <span class="article-arrow" :class="{ open: selectedId === a.id }">›</span>
           </div>
           <transition name="fade-slide">
-            <div v-if="selectedId === a.id" class="article-body" v-html="a.body || '加载中...'"></div>
+            <div v-if="selectedId === a.id" class="article-body">
+              <MarkdownRenderer :content="a.body || '加载中...'" />
+            </div>
           </transition>
         </div>
       </div>
@@ -64,15 +85,25 @@ async function toggleArticle(id: number) {
     <!-- Static fallback tutorials -->
     <template v-else-if="!loading">
       <div class="tutorial-grid">
-        <div v-for="t in staticTutorials" :key="t.platform" class="tutorial-card glass-card">
+        <div v-for="tut in staticTutorials" :key="tut.platform" class="tutorial-card glass-card">
           <div class="card-header">
             <div class="platform-icon">
-              <SvgIcon :name="t.icon" :size="20" />
+              <SvgIcon :name="tut.icon" :size="20" />
             </div>
-            <h3>{{ t.platform }}</h3>
+            <div class="card-header-info">
+              <h3>{{ tut.platform }}</h3>
+              <a
+                v-if="downloads[tut.dlKey]"
+                :href="downloads[tut.dlKey]"
+                target="_blank"
+                rel="noopener"
+                class="dl-btn"
+                @click.stop
+              >下载客户端</a>
+            </div>
           </div>
           <ol class="steps">
-            <li v-for="(step, i) in t.steps" :key="i">
+            <li v-for="(step, i) in tut.steps" :key="i">
               <span class="step-num">{{ i + 1 }}</span>
               <span>{{ step }}</span>
             </li>
@@ -91,12 +122,9 @@ async function toggleArticle(id: number) {
 .page-title { font-size: 22px; font-weight: 700; margin-bottom: $gap-lg; }
 .loading-text { color: var(--text-3); }
 
-// Dynamic articles
 .article-list { display: flex; flex-direction: column; gap: $gap-sm; }
 .article-item {
-  padding: $gap-md $gap-lg;
-  cursor: pointer;
-  transition: transform 0.2s;
+  padding: $gap-md $gap-lg; cursor: pointer; transition: transform 0.2s;
   &:hover { transform: translateY(-1px); }
 }
 .article-header { display: flex; align-items: center; gap: $gap-sm; }
@@ -106,23 +134,22 @@ async function toggleArticle(id: number) {
   font-size: 18px; color: var(--text-3); transition: transform 0.2s;
   &.open { transform: rotate(90deg); color: var(--brand); }
 }
-.article-body {
-  margin-top: $gap-md; font-size: 14px; color: var(--text-2);
-  line-height: 1.7; padding-top: $gap-md;
-  border-top: 1px solid var(--border);
-}
+.article-body { margin-top: $gap-md; padding-top: $gap-md; border-top: 1px solid var(--border); }
 
-// Static grid
-.tutorial-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: $gap-md; }
+.tutorial-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: $gap-md; }
 .tutorial-card { padding: $gap-lg; }
-.card-header {
-  display: flex; align-items: center; gap: $gap-sm; margin-bottom: $gap-md;
-  h3 { font-size: 16px; font-weight: 700; }
+.card-header { display: flex; align-items: flex-start; gap: $gap-sm; margin-bottom: $gap-md; }
+.card-header-info { display: flex; flex-direction: column; gap: 4px; h3 { font-size: 16px; font-weight: 700; } }
+.dl-btn {
+  display: inline-block; font-size: 12px; font-weight: 600;
+  color: var(--brand-light); background: rgba(var(--brand-rgb), 0.1);
+  border: 1px solid rgba(var(--brand-rgb), 0.2);
+  padding: 3px 10px; border-radius: 6px; text-decoration: none; transition: all 0.15s;
+  &:hover { background: rgba(var(--brand-rgb), 0.2); }
 }
 .platform-icon {
   width: 36px; height: 36px; border-radius: 10px;
-  background: var(--grad-brand);
-  display: flex; align-items: center; justify-content: center;
+  background: var(--grad-brand); display: flex; align-items: center; justify-content: center;
   color: #fff; flex-shrink: 0;
 }
 .steps { list-style: none; display: flex; flex-direction: column; gap: $gap-sm; }

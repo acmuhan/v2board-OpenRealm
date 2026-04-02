@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useThemeStore, themes } from '../../stores/theme'
 
 defineProps<{ open?: boolean }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const themeStore = useThemeStore()
@@ -14,49 +16,49 @@ const showThemes = ref(false)
 const orConfig = (window as any).__OR_CONFIG__ || {}
 const siteTitle = orConfig.title || 'OpenRealm'
 
-const navGroups = [
+const navGroups = computed(() => [
   {
-    label: '总览',
+    label: t('admin.nav.groupOverview'),
     items: [
-      { path: '/admin', icon: 'dashboard', text: '仪表盘' },
+      { path: '/admin', icon: 'dashboard', text: t('admin.nav.dashboard') },
     ],
   },
   {
-    label: '运营',
+    label: t('admin.nav.groupOps'),
     items: [
-      { path: '/admin/users', icon: 'users', text: '用户管理' },
-      { path: '/admin/plans', icon: 'plan', text: '订阅管理' },
-      { path: '/admin/orders', icon: 'orders', text: '订单管理' },
-      { path: '/admin/coupons', icon: 'coupon', text: '优惠券' },
-      { path: '/admin/giftcards', icon: 'gift', text: '礼品卡' },
+      { path: '/admin/users', icon: 'users', text: t('admin.nav.users') },
+      { path: '/admin/plans', icon: 'plan', text: t('admin.nav.plans') },
+      { path: '/admin/orders', icon: 'orders', text: t('admin.nav.orders') },
+      { path: '/admin/coupons', icon: 'coupon', text: t('admin.nav.coupons') },
+      { path: '/admin/giftcards', icon: 'gift', text: t('admin.nav.giftcards') },
     ],
   },
   {
-    label: '节点',
+    label: t('admin.nav.groupNodes'),
     items: [
-      { path: '/admin/servers', icon: 'server', text: '节点管理' },
-      { path: '/admin/server-groups', icon: 'group', text: '节点分组' },
-      { path: '/admin/server-routes', icon: 'route', text: '路由规则' },
+      { path: '/admin/servers', icon: 'server', text: t('admin.nav.servers') },
+      { path: '/admin/server-groups', icon: 'group', text: t('admin.nav.serverGroups') },
+      { path: '/admin/server-routes', icon: 'route', text: t('admin.nav.serverRoutes') },
     ],
   },
   {
-    label: '内容',
+    label: t('admin.nav.groupContent'),
     items: [
-      { path: '/admin/tickets', icon: 'ticket', text: '工单管理' },
-      { path: '/admin/notices', icon: 'notice', text: '公告管理' },
-      { path: '/admin/knowledge', icon: 'knowledge', text: '知识库' },
+      { path: '/admin/tickets', icon: 'ticket', text: t('admin.nav.tickets') },
+      { path: '/admin/notices', icon: 'notice', text: t('admin.nav.notices') },
+      { path: '/admin/knowledge', icon: 'knowledge', text: t('admin.nav.knowledge') },
     ],
   },
   {
-    label: '系统',
+    label: t('admin.nav.groupSystem'),
     items: [
-      { path: '/admin/payment', icon: 'payment', text: '支付配置' },
-      { path: '/admin/config', icon: 'config', text: '系统配置' },
-      { path: '/admin/theme', icon: 'theme', text: '主题管理' },
-      { path: '/admin/system', icon: 'system', text: '系统状态' },
+      { path: '/admin/payment', icon: 'payment', text: t('admin.nav.payments') },
+      { path: '/admin/config', icon: 'config', text: t('admin.nav.config') },
+      { path: '/admin/theme', icon: 'theme', text: t('admin.nav.themes') },
+      { path: '/admin/system', icon: 'system', text: t('admin.nav.system') },
     ],
   },
-]
+])
 
 // Inline SVG icon paths (Heroicons-style, 24x24 viewBox, stroke-based)
 const iconPaths: Record<string, string> = {
@@ -150,7 +152,7 @@ const isActive = (path: string) =>
             :style="{ background: t.colors[0] }"
           ></span>
         </div>
-        <span>主题</span>
+        <span>{{ t('nav.theme') }}</span>
       </button>
       <transition name="fade-slide">
         <div v-if="showThemes" class="theme-picker">
@@ -176,7 +178,7 @@ const isActive = (path: string) =>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <path :d="iconPaths.back" />
         </svg>
-        <span>返回用户端</span>
+        <span>{{ t('admin.nav.backToUser') }}</span>
       </router-link>
     </div>
   </aside>

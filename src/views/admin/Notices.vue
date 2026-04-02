@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { adminNoticeApi } from '../../api/admin'
+import MarkdownRenderer from '../../components/common/MarkdownRenderer.vue'
+
+const { t } = useI18n()
 
 /* ── Types ── */
 interface Notice {
@@ -15,6 +19,7 @@ interface Notice {
 
 /* ── State ── */
 const showModal = ref(false)
+const showPreview = ref(false)
 const editingId = ref<number | null>(null)
 const confirmDeleteId = ref<number | null>(null)
 
@@ -43,6 +48,7 @@ onMounted(() => loadNotices())
 function openAdd() {
   editingId.value = null
   form.value = { title: '', content: '', img_url: '', tags: '' }
+  showPreview.value = false
   showModal.value = true
 }
 
@@ -54,6 +60,7 @@ function openEdit(n: Notice) {
     img_url: n.img_url,
     tags: n.tags.join(', '),
   }
+  showPreview.value = false
   showModal.value = true
 }
 
@@ -90,8 +97,8 @@ function formatDate(ts: number) {
 <template>
   <div class="admin-notices">
     <div class="page-header stagger-1">
-      <h1 class="page-title">Notices</h1>
-      <button class="btn-primary" @click="openAdd">+ Add Notice</button>
+      <h1 class="page-title">{{ t('admin.notices.title') }}</h1>
+      <button class="btn-primary" @click="openAdd">+ {{ t('admin.notices.add') }}</button>
     </div>
 
     <!-- Notice List -->
@@ -105,20 +112,20 @@ function formatDate(ts: number) {
           <div class="notice-actions">
             <button
               :class="['vis-toggle', { visible: n.show }]"
-              :title="n.show ? 'Visible' : 'Hidden'"
+              :title="n.show ? t('admin.notices.show') : t('admin.notices.hide')"
               @click="toggleVisibility(n)"
             >
-              <span class="vis-icon">{{ n.show ? '&#9673;' : '&#9675;' }}</span>
+              <span :class="['vis-dot', { active: n.show }]" />
             </button>
-            <button class="btn-ghost btn-sm" @click="openEdit(n)">Edit</button>
+            <button class="btn-ghost btn-sm" @click="openEdit(n)">{{ t('common.edit') }}</button>
             <button
               v-if="confirmDeleteId !== n.id"
               class="btn-ghost btn-sm btn-danger"
               @click="confirmDeleteId = n.id"
-            >Delete</button>
+            >{{ t('common.delete') }}</button>
             <template v-else>
-              <button class="btn-ghost btn-sm btn-danger" @click="deleteNotice(n.id)">Confirm</button>
-              <button class="btn-ghost btn-sm" @click="confirmDeleteId = null">Cancel</button>
+              <button class="btn-ghost btn-sm btn-danger" @click="deleteNotice(n.id)">{{ t('common.confirm') }}</button>
+              <button class="btn-ghost btn-sm" @click="confirmDeleteId = null">{{ t('common.cancel') }}</button>
             </template>
           </div>
         </div>
@@ -130,55 +137,68 @@ function formatDate(ts: number) {
           </div>
         </div>
 
-        <p class="notice-content">{{ n.content }}</p>
+        <div class="notice-content">
+          <MarkdownRenderer :content="n.content" />
+        </div>
 
         <div v-if="n.img_url" class="notice-img-hint">
-          <span class="img-indicator">Image attached</span>
+          <span class="img-indicator">{{ t('admin.notices.imageAttached') }}</span>
         </div>
       </div>
     </div>
 
-    <div v-if="!notices.length" class="empty-state">No notices yet.</div>
+    <div v-if="!notices.length" class="empty-state">{{ t('common.noData') || 'No notices yet.' }}</div>
 
     <!-- Modal Overlay -->
     <Teleport to="body">
       <transition name="fade">
         <div v-if="showModal" class="modal-overlay" @click.self="showModal = false">
           <div class="modal-box">
-            <h2 class="modal-title">{{ editingId ? 'Edit Notice' : 'Add Notice' }}</h2>
+            <h2 class="modal-title">{{ editingId ? t('admin.notices.editTitle') : t('admin.notices.add') }}</h2>
 
             <div class="form-group">
-              <label>Title</label>
-              <input v-model="form.title" class="or-input" placeholder="Notice title" />
+              <label>{{ t('admin.notices.name') }}</label>
+              <input v-model="form.title" class="or-input" :placeholder="t('admin.notices.name')" />
             </div>
 
             <div class="form-group">
-              <label>Content</label>
+              <div class="content-header">
+                <label>{{ t('admin.notices.content') }}</label>
+                <button
+                  :class="['preview-toggle', { active: showPreview }]"
+                  type="button"
+                  @click="showPreview = !showPreview"
+                >{{ t('admin.notices.markdownPreview') }}</button>
+              </div>
               <textarea
+                v-if="!showPreview"
                 v-model="form.content"
                 class="or-input"
-                rows="5"
-                placeholder="Notice content..."
+                rows="8"
+                :placeholder="t('admin.notices.content') + ' (Markdown supported)'"
               ></textarea>
+              <div v-else class="md-preview-wrap">
+                <MarkdownRenderer :content="form.content" />
+              </div>
             </div>
 
             <div class="form-group">
-              <label>Image URL</label>
+              <label>{{ t('admin.notices.imgUrl') }}</label>
               <input v-model="form.img_url" class="or-input" placeholder="https://..." />
             </div>
 
             <div class="form-group">
-              <label>Tags <span class="hint">(comma-separated)</span></label>
+              <label>{{ t('admin.notices.tags') }} <span class="hint">(comma-separated)</span></label>
               <input v-model="form.tags" class="or-input" placeholder="tag1, tag2" />
             </div>
 
             <div class="modal-actions">
-              <button class="btn-ghost" @click="showModal = false">Cancel</button>
+              <button class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
               <button
                 class="btn-primary"
                 :disabled="!form.title.trim()"
                 @click="saveNotice"
-              >{{ editingId ? 'Save Changes' : 'Create Notice' }}</button>
+              >{{ editingId ? t('admin.notices.saveChanges') : t('admin.notices.createNotice') }}</button>
             </div>
           </div>
         </div>
@@ -211,16 +231,19 @@ function formatDate(ts: number) {
   gap: $gap-md; margin-bottom: $gap-sm;
 }
 .notice-title { font-size: 16px; font-weight: 700; color: var(--text-1); margin: 0; }
-.notice-actions { display: flex; gap: $gap-xs; flex-shrink: 0; }
+.notice-actions { display: flex; gap: $gap-xs; flex-shrink: 0; align-items: center; }
 .notice-meta {
   display: flex; align-items: center; gap: $gap-md; margin-bottom: $gap-md;
 }
 .notice-date { font-size: 12px; color: var(--text-3); }
 .tag-list { display: flex; gap: $gap-xs; flex-wrap: wrap; }
 .notice-content {
-  font-size: 13px; color: var(--text-2); line-height: 1.7; margin: 0;
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
-  overflow: hidden;
+  font-size: 13px; color: var(--text-2); line-height: 1.7;
+  max-height: 120px; overflow: hidden; position: relative;
+  &::after {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+    height: 40px; background: linear-gradient(transparent, var(--bg-card));
+  }
 }
 .notice-img-hint { margin-top: $gap-sm; }
 .img-indicator {
@@ -228,7 +251,7 @@ function formatDate(ts: number) {
   padding: 3px 8px; border-radius: 4px;
 }
 
-/* Visibility Toggle */
+/* Visibility Toggle — CSS dot instead of HTML entity */
 .vis-toggle {
   width: 28px; height: 28px; border-radius: 6px;
   background: var(--bg-1); border: 1px solid var(--border);
@@ -236,7 +259,11 @@ function formatDate(ts: number) {
   cursor: pointer; transition: all 0.2s;
   &.visible { border-color: var(--success); background: rgba(16, 185, 129, 0.1); }
 }
-.vis-icon { font-size: 14px; color: var(--text-2); .visible & { color: var(--success); } }
+.vis-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--text-3); transition: background 0.2s;
+  &.active { background: var(--success); }
+}
 
 /* Buttons */
 .btn-sm { padding: 5px 12px; font-size: 12px; }
@@ -252,7 +279,7 @@ function formatDate(ts: number) {
 .modal-box {
   background: var(--bg-card); border: 1px solid var(--border);
   border-radius: $card-radius; padding: $gap-lg;
-  width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto;
+  width: 100%; max-width: 640px; max-height: 90vh; overflow-y: auto;
   box-shadow: var(--shadow-md);
 }
 .modal-title { font-size: 18px; font-weight: 700; margin-bottom: $gap-lg; }
@@ -261,7 +288,22 @@ function formatDate(ts: number) {
   label { font-size: 13px; color: var(--text-2); font-weight: 500; }
   .hint { font-size: 11px; color: var(--text-3); font-weight: 400; }
 }
-textarea.or-input { resize: vertical; min-height: 100px; }
+.content-header {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.preview-toggle {
+  font-size: 12px; padding: 3px 10px; border-radius: 6px;
+  background: var(--bg-1); border: 1px solid var(--border);
+  color: var(--text-2); cursor: pointer; transition: all 0.15s;
+  &:hover { border-color: var(--accent); color: var(--accent); }
+  &.active { border-color: var(--accent); color: var(--accent); background: rgba(var(--accent-rgb), 0.08); }
+}
+textarea.or-input { resize: vertical; min-height: 160px; }
+.md-preview-wrap {
+  min-height: 160px; max-height: 400px; overflow-y: auto;
+  background: var(--bg-1); border: 1px solid var(--border);
+  border-radius: $card-radius-sm; padding: $gap-md;
+}
 .modal-actions {
   display: flex; justify-content: flex-end; gap: $gap-sm; margin-top: $gap-lg;
 }

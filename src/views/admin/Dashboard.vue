@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { adminStatApi, adminOrderApi } from '../../api/admin'
+
+const { t } = useI18n()
 
 // ── Stat cards ──────────────────────────────
 interface OverrideStats {
@@ -79,20 +82,26 @@ function formatTime(ts: number): string {
 
 function cycleName(cycle: string): string {
   const map: Record<string, string> = {
-    month_price: '月付',
-    quarter_price: '季付',
-    half_year_price: '半年付',
-    year_price: '年付',
-    two_year_price: '两年付',
-    three_year_price: '三年付',
-    onetime_price: '一次性',
+    month_price: t('admin.dashboard.cycleMonth'),
+    quarter_price: t('admin.dashboard.cycleQuarter'),
+    half_year_price: t('admin.dashboard.cycleHalfYear'),
+    year_price: t('admin.dashboard.cycleYear'),
+    two_year_price: t('admin.dashboard.cycleTwoYear'),
+    three_year_price: t('admin.dashboard.cycleThreeYear'),
+    onetime_price: t('admin.dashboard.cycleOnetime'),
   }
   return map[cycle] || cycle
 }
 
 function orderStatusLabel(status: number): string {
-  const map: Record<number, string> = { 0: '待支付', 1: '开通中', 2: '已取消', 3: '已完成', 4: '已折抵' }
-  return map[status] || '未知'
+  const map: Record<number, string> = {
+    0: t('admin.dashboard.orderPending'),
+    1: t('admin.dashboard.orderActivating'),
+    2: t('admin.dashboard.orderCancelled'),
+    3: t('admin.dashboard.orderCompleted'),
+    4: t('admin.dashboard.orderDeducted'),
+  }
+  return map[status] || '--'
 }
 
 function orderStatusClass(status: number): string {
@@ -104,10 +113,10 @@ function orderStatusClass(status: number): string {
 const statCards = computed(() => {
   if (!stats.value) return []
   return [
-    { label: '在线用户', value: stats.value.online_count.toLocaleString(), icon: '&#9679;', color: 'var(--success)' },
-    { label: '今日收入', value: '¥' + formatCNY(stats.value.today_income), icon: '&#36;', color: 'var(--brand)' },
-    { label: '月收入', value: '¥' + formatCNY(stats.value.month_income), icon: '&#9733;', color: 'var(--accent)' },
-    { label: '待处理工单', value: stats.value.pending_tickets.toString(), icon: '&#9993;', color: 'var(--warning)' },
+    { label: t('admin.dashboard.onlineUsers'), value: stats.value.online_count.toLocaleString(), iconType: 'dot', color: 'var(--success)' },
+    { label: t('admin.dashboard.todayRevenue'), value: '¥' + formatCNY(stats.value.today_income), iconType: 'currency', color: 'var(--brand)' },
+    { label: t('admin.dashboard.monthRevenue'), value: '¥' + formatCNY(stats.value.month_income), iconType: 'chart', color: 'var(--accent)' },
+    { label: t('admin.dashboard.pendingTickets'), value: stats.value.pending_tickets.toString(), iconType: 'ticket', color: 'var(--warning)' },
   ]
 })
 
@@ -196,19 +205,20 @@ onMounted(async () => {
   <div class="admin-dashboard">
     <!-- Page Header -->
     <div class="page-header stagger-1">
-      <h1>仪表盘</h1>
-      <span class="header-sub">Admin Overview</span>
+      <h1>{{ t('admin.dashboard.title') }}</h1>
     </div>
 
     <!-- Loading state -->
     <div v-if="loading" class="dashboard-loading">
       <div class="loading-spinner"></div>
-      <span>加载中...</span>
+      <span>{{ t('common.loading') }}</span>
     </div>
 
     <!-- Error state -->
     <div v-else-if="error" class="dashboard-error">
-      <span class="error-icon">&#9888;</span>
+      <span class="error-icon-svg">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </span>
       <span>{{ error }}</span>
     </div>
 
@@ -223,7 +233,11 @@ onMounted(async () => {
         :class="'stagger-' + (i + 2)"
       >
         <div class="stat-icon" :style="{ color: card.color }">
-          <span v-html="card.icon"></span>
+          <!-- CSS-based icons instead of HTML entities -->
+          <svg v-if="card.iconType === 'dot'" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="6"/></svg>
+          <svg v-else-if="card.iconType === 'currency'" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          <svg v-else-if="card.iconType === 'chart'" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          <svg v-else-if="card.iconType === 'ticket'" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 5H3a2 2 0 0 0-2 2v3a2 2 0 0 1 0 4v3a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2v-3a2 2 0 0 1 0-4V7a2 2 0 0 0-2-2z"/></svg>
         </div>
         <div class="stat-body">
           <span class="stat-label">{{ card.label }}</span>
@@ -235,9 +249,9 @@ onMounted(async () => {
     <!-- ── 2. Revenue Chart (31 days) ─────── -->
     <div class="card chart-card stagger-6" style="padding: 24px;">
       <div class="chart-header">
-        <span class="section-title" style="margin: 0">近 31 天收入趋势</span>
+        <span class="section-title" style="margin: 0">{{ t('admin.dashboard.revenueChartTitle') }}</span>
         <div class="chart-legend">
-          <span class="legend-dot"></span> 收入 (CNY)
+          <span class="legend-dot"></span> {{ t('admin.dashboard.revenueLabel') }}
         </div>
       </div>
       <div class="chart-area">
@@ -257,19 +271,19 @@ onMounted(async () => {
             <span v-else class="bar-label empty"></span>
           </div>
         </div>
-        <div v-else class="chart-empty">暂无收入数据</div>
+        <div v-else class="chart-empty">{{ t('admin.dashboard.noData') }}</div>
       </div>
       <div v-if="revenueData.length" class="chart-summary">
         <div class="summary-item">
-          <span class="summary-label">总计</span>
+          <span class="summary-label">{{ t('admin.dashboard.totalLabel') }}</span>
           <span class="summary-value">¥{{ formatCNY(revenueData.reduce((a, b) => a + b, 0)) }}</span>
         </div>
         <div class="summary-item">
-          <span class="summary-label">日均</span>
+          <span class="summary-label">{{ t('admin.dashboard.dailyAvg') }}</span>
           <span class="summary-value">¥{{ formatCNY(Math.round(revenueData.reduce((a, b) => a + b, 0) / (revenueData.length || 1))) }}</span>
         </div>
         <div class="summary-item">
-          <span class="summary-label">峰值</span>
+          <span class="summary-label">{{ t('admin.dashboard.peakValue') }}</span>
           <span class="summary-value">¥{{ formatCNY(Math.max(...revenueData)) }}</span>
         </div>
       </div>
@@ -279,17 +293,17 @@ onMounted(async () => {
     <div class="rank-row">
       <!-- Server Rank -->
       <div class="card rank-card stagger-7" style="padding: 24px;">
-        <span class="section-title">今日流量 TOP 服务器</span>
+        <span class="section-title">{{ t('admin.dashboard.topServers') }}</span>
         <div class="rank-table-wrap">
           <table class="rank-table">
             <thead>
               <tr>
                 <th>#</th>
-                <th>节点</th>
-                <th>协议</th>
-                <th>上行</th>
-                <th>下行</th>
-                <th>总计</th>
+                <th>{{ t('admin.dashboard.nodeHeader') }}</th>
+                <th>{{ t('admin.dashboard.protocol') }}</th>
+                <th>{{ t('admin.dashboard.upload') }}</th>
+                <th>{{ t('admin.dashboard.download') }}</th>
+                <th>{{ t('admin.dashboard.totalLabel') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -302,7 +316,7 @@ onMounted(async () => {
                 <td class="mono total-cell">{{ formatBytes(s.total) }}</td>
               </tr>
               <tr v-if="!serverRank.length">
-                <td colspan="6" class="empty-row">暂无数据</td>
+                <td colspan="6" class="empty-row">{{ t('admin.dashboard.noData') }}</td>
               </tr>
             </tbody>
           </table>
@@ -311,16 +325,16 @@ onMounted(async () => {
 
       <!-- User Rank -->
       <div class="card rank-card stagger-8" style="padding: 24px;">
-        <span class="section-title">今日流量 TOP 用户</span>
+        <span class="section-title">{{ t('admin.dashboard.topUsers') }}</span>
         <div class="rank-table-wrap">
           <table class="rank-table">
             <thead>
               <tr>
                 <th>#</th>
-                <th>用户</th>
-                <th>上行</th>
-                <th>下行</th>
-                <th>总计</th>
+                <th>{{ t('admin.dashboard.userHeader') }}</th>
+                <th>{{ t('admin.dashboard.upload') }}</th>
+                <th>{{ t('admin.dashboard.download') }}</th>
+                <th>{{ t('admin.dashboard.totalLabel') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -332,7 +346,7 @@ onMounted(async () => {
                 <td class="mono total-cell">{{ formatBytes(u.total) }}</td>
               </tr>
               <tr v-if="!userRank.length">
-                <td colspan="5" class="empty-row">暂无数据</td>
+                <td colspan="5" class="empty-row">{{ t('admin.dashboard.noData') }}</td>
               </tr>
             </tbody>
           </table>
@@ -343,20 +357,20 @@ onMounted(async () => {
     <!-- ── 4. Recent Orders ───────────────── -->
     <div class="card orders-card stagger-9" style="padding: 24px;">
       <div class="orders-header">
-        <span class="section-title" style="margin: 0">最近订单</span>
-        <button class="btn-ghost btn-sm" @click="$router.push('/admin/orders')">查看全部</button>
+        <span class="section-title" style="margin: 0">{{ t('admin.dashboard.recentOrders') }}</span>
+        <button class="btn-ghost btn-sm" @click="$router.push('/admin/orders')">{{ t('admin.dashboard.viewAll') }}</button>
       </div>
       <div class="orders-table-wrap">
         <table class="orders-table">
           <thead>
             <tr>
-              <th>订单号</th>
-              <th>用户</th>
-              <th>套餐</th>
-              <th>周期</th>
-              <th>金额</th>
-              <th>状态</th>
-              <th>时间</th>
+              <th>{{ t('admin.dashboard.tradeNo') }}</th>
+              <th>{{ t('admin.dashboard.userHeader') }}</th>
+              <th>{{ t('admin.dashboard.planHeader') }}</th>
+              <th>{{ t('admin.dashboard.cycle') }}</th>
+              <th>{{ t('admin.dashboard.amount') }}</th>
+              <th>{{ t('common.status') || 'Status' }}</th>
+              <th>{{ t('admin.dashboard.time') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -370,7 +384,7 @@ onMounted(async () => {
               <td class="mono time-cell">{{ formatTime(order.created_at) }}</td>
             </tr>
             <tr v-if="!recentOrders.length">
-              <td colspan="7" class="empty-row">暂无订单数据</td>
+              <td colspan="7" class="empty-row">{{ t('admin.dashboard.noData') }}</td>
             </tr>
           </tbody>
         </table>
@@ -447,8 +461,10 @@ onMounted(async () => {
   font-size: 14px;
 }
 
-.error-icon {
-  font-size: 18px;
+.error-icon-svg {
+  display: flex;
+  align-items: center;
+  color: var(--danger);
 }
 
 .empty-row {

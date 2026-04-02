@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useThemeStore, themes, type ThemeId } from '../../stores/theme'
+import { adminThemeApi } from '../../api/admin'
 
 const themeStore = useThemeStore()
 const activePreset = ref<string>(themeStore.current)
 const activeSection = ref<'palette' | 'custom' | 'frontend' | 'export'>('palette')
 const saving = ref(false)
 const saved = ref(false)
+const backendError = ref('')
 
 // Custom theme editor
 const custom = reactive({
@@ -26,6 +28,32 @@ const custom = reactive({
 // Frontend theme settings
 const frontendTheme = ref('OpenRealm')
 const frontendThemes = ref(['OpenRealm', 'V2Board', 'Starter', 'Custom'])
+
+// ── Load saved config from backend on mount ──────────────
+onMounted(async () => {
+  // Restore from localStorage first (instant)
+  const saved = localStorage.getItem('or_custom_theme')
+  if (saved) {
+    try { Object.assign(custom, JSON.parse(saved)) } catch { /* ignore */ }
+  }
+  // Then try backend (may override localStorage)
+  try {
+    const res: any = await adminThemeApi.getThemeConfig()
+    if (res?.data?.custom) {
+      const data = res.data.custom
+      if (data.brand) Object.assign(custom, data)
+    }
+    if (res?.data?.preset) {
+      activePreset.value = res.data.preset
+      themeStore.setTheme(res.data.preset as ThemeId)
+    }
+    if (res?.data?.frontend) {
+      frontendTheme.value = res.data.frontend
+    }
+  } catch {
+    // Backend unavailable — localStorage fallback already applied above
+  }
+})
 
 // Hex to RGB for preview
 function hexToRgb(hex: string): string {
@@ -47,6 +75,7 @@ function selectPreset(name: string) {
 
 async function saveTheme() {
   saving.value = true
+  backendError.value = ''
   try {
     // Apply custom theme via CSS variables injected into :root
     const root = document.documentElement
@@ -62,6 +91,16 @@ async function saveTheme() {
     root.style.setProperty('--text-3', custom.text3)
     // Persist to localStorage for page refreshes
     localStorage.setItem('or_custom_theme', JSON.stringify(custom))
+    // Sync to backend
+    try {
+      await adminThemeApi.saveThemeConfig({
+        custom: { ...custom },
+        preset: activePreset.value,
+        frontend: frontendTheme.value,
+      })
+    } catch {
+      backendError.value = 'Backend sync failed — saved locally only'
+    }
     saved.value = true
     setTimeout(() => (saved.value = false), 2500)
   } finally {
@@ -248,7 +287,8 @@ function importTheme(event: Event) {
 
           <div class="form-actions">
             <Transition name="fade-slide">
-              <span v-if="saved" class="save-success">&#10003; 已保存</span>
+              <span v-if="backendError" class="save-warn">{{ backendError }}</span>
+              <span v-else-if="saved" class="save-success">&#10003; 已保存</span>
             </Transition>
             <button class="btn-gradient" :disabled="saving" @click="saveTheme">
               {{ saving ? '保存中...' : '保存自定义主题' }}
@@ -594,6 +634,12 @@ function importTheme(event: Event) {
   font-size: 13px;
   color: var(--success);
   font-weight: 600;
+}
+
+.save-warn {
+  font-size: 12px;
+  color: var(--warning);
+  font-weight: 500;
 }
 
 // Preview panel

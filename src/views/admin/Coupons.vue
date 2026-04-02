@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { adminCouponApi } from '../../api/admin'
+
+const { t } = useI18n()
 
 /* ── Types ── */
 interface Coupon {
@@ -53,10 +56,10 @@ onMounted(() => loadCoupons())
 const isExpired = (c: Coupon) => c.ended_at * 1000 < Date.now()
 
 const statusLabel = (c: Coupon) => {
-  if (!c.show) return { text: 'Hidden', cls: 'muted' }
-  if (isExpired(c)) return { text: 'Expired', cls: 'danger' }
-  if (c.limit_use !== null && c.used >= c.limit_use) return { text: 'Depleted', cls: 'warning' }
-  return { text: 'Active', cls: 'success' }
+  if (!c.show) return { text: t('admin.coupons.statusHidden'), cls: 'muted' }
+  if (isExpired(c)) return { text: t('admin.coupons.statusExpired'), cls: 'danger' }
+  if (c.limit_use !== null && c.used >= c.limit_use) return { text: t('admin.coupons.statusDepleted'), cls: 'warning' }
+  return { text: t('admin.coupons.statusActive'), cls: 'success' }
 }
 
 /* ── Actions ── */
@@ -113,15 +116,15 @@ function formatDate(ts: number) {
 }
 
 function formatValue(c: Coupon) {
-  return c.type === 2 ? `${c.value}%` : `$${(c.value / 100).toFixed(2)}`
+  return c.type === 2 ? `${c.value}%` : `¥${(c.value / 100).toFixed(2)}`
 }
 </script>
 
 <template>
   <div class="admin-coupons">
     <div class="page-header stagger-1">
-      <h1 class="page-title">Coupons</h1>
-      <button class="btn-primary" @click="openGenerate">+ Generate Coupon</button>
+      <h1 class="page-title">{{ t('admin.coupons.title') }}</h1>
+      <button class="btn-primary" @click="openGenerate">+ {{ t('admin.coupons.generate') }}</button>
     </div>
 
     <!-- Table -->
@@ -130,14 +133,14 @@ function formatValue(c: Coupon) {
         <thead>
           <tr>
             <th>ID</th>
-            <th>Code</th>
-            <th>Type</th>
-            <th>Value</th>
-            <th>Limit</th>
-            <th>Used</th>
-            <th>Valid Period</th>
-            <th>Status</th>
-            <th>Actions</th>
+            <th>{{ t('admin.coupons.code') }}</th>
+            <th>{{ t('admin.coupons.type') }}</th>
+            <th>{{ t('admin.coupons.value') }}</th>
+            <th>{{ t('admin.coupons.limitUse') }}</th>
+            <th>{{ t('admin.coupons.usedCount') }}</th>
+            <th>{{ t('admin.coupons.validPeriod') }}</th>
+            <th>{{ t('admin.coupons.status') || 'Status' }}</th>
+            <th>{{ t('common.edit') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -148,11 +151,11 @@ function formatValue(c: Coupon) {
             </td>
             <td>
               <span :class="['type-badge', c.type === 2 ? 'percent' : 'amount']">
-                {{ c.type === 2 ? 'Percent' : 'Amount' }}
+                {{ c.type === 2 ? t('admin.coupons.percent') : t('admin.coupons.fixed') }}
               </span>
             </td>
             <td class="col-value">{{ formatValue(c) }}</td>
-            <td class="col-limit">{{ c.limit_use ?? 'Unlimited' }}</td>
+            <td class="col-limit">{{ c.limit_use ?? t('admin.coupons.unlimited') }}</td>
             <td class="col-used">
               <span class="used-count">{{ c.used }}</span>
               <span v-if="c.limit_use" class="used-total"> / {{ c.limit_use }}</span>
@@ -169,21 +172,21 @@ function formatValue(c: Coupon) {
               <button
                 :class="['btn-ghost btn-sm', { 'btn-active': c.show }]"
                 @click="toggleShow(c)"
-              >{{ c.show ? 'Hide' : 'Show' }}</button>
+              >{{ c.show ? t('admin.notices.hide') : t('admin.notices.show') }}</button>
               <button
                 v-if="confirmDeleteId !== c.id"
                 class="btn-ghost btn-sm btn-danger"
                 @click="confirmDeleteId = c.id"
-              >Delete</button>
+              >{{ t('common.delete') }}</button>
               <template v-else>
-                <button class="btn-ghost btn-sm btn-danger" @click="deleteCoupon(c.id)">Confirm</button>
-                <button class="btn-ghost btn-sm" @click="confirmDeleteId = null">Cancel</button>
+                <button class="btn-ghost btn-sm btn-danger" @click="deleteCoupon(c.id)">{{ t('common.confirm') }}</button>
+                <button class="btn-ghost btn-sm" @click="confirmDeleteId = null">{{ t('common.cancel') }}</button>
               </template>
             </td>
           </tr>
         </tbody>
       </table>
-      <div v-if="!coupons.length" class="empty-state">No coupons found.</div>
+      <div v-if="!coupons.length" class="empty-state">{{ t('common.noData') || 'No coupons found.' }}</div>
     </div>
 
     <!-- Generate Modal -->
@@ -191,15 +194,15 @@ function formatValue(c: Coupon) {
       <transition name="fade">
         <div v-if="showModal" class="modal-overlay" @click.self="showModal = false">
           <div class="modal-box">
-            <h2 class="modal-title">Generate Coupon</h2>
+            <h2 class="modal-title">{{ t('admin.coupons.generateTitle') }}</h2>
 
             <div class="form-row">
               <div class="form-group flex-1">
-                <label>Name</label>
-                <input v-model="form.name" class="or-input" placeholder="Coupon name" />
+                <label>{{ t('admin.coupons.name') }}</label>
+                <input v-model="form.name" class="or-input" :placeholder="t('admin.coupons.name')" />
               </div>
               <div class="form-group flex-1">
-                <label>Code</label>
+                <label>{{ t('admin.coupons.code') }}</label>
                 <div class="code-row">
                   <input v-model="form.code" class="or-input" placeholder="CODE" style="flex:1" />
                   <button class="btn-ghost btn-sm" @click="generateCode">Auto</button>
@@ -209,57 +212,57 @@ function formatValue(c: Coupon) {
 
             <div class="form-row">
               <div class="form-group flex-1">
-                <label>Type</label>
+                <label>{{ t('admin.coupons.type') }}</label>
                 <select v-model="form.type" class="or-input">
-                  <option :value="1">Fixed Amount</option>
-                  <option :value="2">Percentage</option>
+                  <option :value="1">{{ t('admin.coupons.fixed') }}</option>
+                  <option :value="2">{{ t('admin.coupons.percent') }}</option>
                 </select>
               </div>
               <div class="form-group flex-1">
-                <label>Value {{ form.type === 2 ? '(%)' : '($)' }}</label>
+                <label>{{ t('admin.coupons.value') }} {{ form.type === 2 ? '(%)' : '(¥)' }}</label>
                 <input v-model.number="form.value" type="number" class="or-input" min="0" />
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-group flex-1">
-                <label>Total Use Limit <span class="hint">(empty = unlimited)</span></label>
-                <input v-model.number="form.limit_use" type="number" class="or-input" min="0" placeholder="Unlimited" />
+                <label>{{ t('admin.coupons.limitUse') }} <span class="hint">({{ t('admin.coupons.unlimited') }})</span></label>
+                <input v-model.number="form.limit_use" type="number" class="or-input" min="0" :placeholder="t('admin.coupons.unlimited')" />
               </div>
               <div class="form-group flex-1">
-                <label>Per-User Limit</label>
-                <input v-model.number="form.limit_use_with_user" type="number" class="or-input" min="0" placeholder="Unlimited" />
+                <label>{{ t('admin.coupons.perUserLimit') }}</label>
+                <input v-model.number="form.limit_use_with_user" type="number" class="or-input" min="0" :placeholder="t('admin.coupons.unlimited')" />
               </div>
             </div>
 
             <div class="form-group">
-              <label>Limit Plan IDs <span class="hint">(comma-separated, empty = all plans)</span></label>
+              <label>{{ t('admin.coupons.limitPlanIds') }} <span class="hint">({{ t('admin.coupons.unlimited') }})</span></label>
               <input v-model="form.limit_plan_ids" class="or-input" placeholder="1, 2, 3" />
             </div>
 
             <div class="form-row">
               <div class="form-group flex-1">
-                <label>Start Date</label>
+                <label>{{ t('admin.coupons.startDate') }}</label>
                 <input v-model="form.started_at" type="datetime-local" class="or-input" />
               </div>
               <div class="form-group flex-1">
-                <label>End Date</label>
+                <label>{{ t('admin.coupons.endDate') }}</label>
                 <input v-model="form.ended_at" type="datetime-local" class="or-input" />
               </div>
             </div>
 
             <div class="form-group">
-              <label>Batch Generate Count</label>
+              <label>{{ t('admin.coupons.batchCount') }}</label>
               <input v-model.number="form.generate_count" type="number" class="or-input" min="1" max="100" />
             </div>
 
             <div class="modal-actions">
-              <button class="btn-ghost" @click="showModal = false">Cancel</button>
+              <button class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
               <button
                 class="btn-primary"
                 :disabled="!form.code.trim()"
                 @click="submitGenerate"
-              >Generate {{ form.generate_count > 1 ? `(${form.generate_count})` : '' }}</button>
+              >{{ t('admin.coupons.generate') }} {{ form.generate_count > 1 ? `(${form.generate_count})` : '' }}</button>
             </div>
           </div>
         </div>
@@ -282,7 +285,7 @@ function formatValue(c: Coupon) {
 /* Table */
 .table-wrap {
   background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: $card-radius; overflow: hidden;
+  border-radius: $card-radius; overflow: hidden; overflow-x: auto;
 }
 .admin-table {
   width: 100%; border-collapse: collapse;
@@ -361,7 +364,6 @@ function formatValue(c: Coupon) {
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
 @media (max-width: $bp-tablet) {
-  .admin-table { display: block; overflow-x: auto; }
   .form-row { flex-direction: column; }
 }
 </style>

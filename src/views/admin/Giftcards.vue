@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { adminGiftcardApi } from '../../api/admin'
+
+const { t } = useI18n()
 
 /* ── Types ── */
 interface Giftcard {
@@ -14,18 +17,18 @@ interface Giftcard {
   used_by: string | null
 }
 
-/* ── Maps ── */
-const typeMap: Record<number, { text: string; cls: string }> = {
-  1: { text: 'Amount', cls: 'amount' },
-  2: { text: 'Duration', cls: 'duration' },
-  3: { text: 'Traffic', cls: 'traffic' },
-  4: { text: 'Plan', cls: 'plan' },
-}
+/* ── Maps (computed for i18n reactivity) ── */
+const typeMap = computed(() => ({
+  1: { text: t('admin.giftcards.typeAmount'), cls: 'amount' },
+  2: { text: t('admin.giftcards.typeDuration'), cls: 'duration' },
+  3: { text: t('admin.giftcards.typeTraffic'), cls: 'traffic' },
+  4: { text: t('admin.giftcards.typePlan'), cls: 'plan' },
+} as Record<number, { text: string; cls: string }>))
 
-const statusMap: Record<number, { text: string; cls: string }> = {
-  0: { text: 'Unused', cls: 'success' },
-  1: { text: 'Used', cls: 'muted' },
-}
+const statusMap = computed(() => ({
+  0: { text: t('admin.giftcards.unused'), cls: 'success' },
+  1: { text: t('admin.giftcards.used'), cls: 'muted' },
+} as Record<number, { text: string; cls: string }>))
 
 /* ── State ── */
 const showModal = ref(false)
@@ -58,7 +61,7 @@ function formatDate(ts: number) {
 
 function formatValue(gc: Giftcard) {
   switch (gc.type) {
-    case 1: return `$${(gc.value / 100).toFixed(2)}`
+    case 1: return `¥${(gc.value / 100).toFixed(2)}`
     case 2: return `${gc.value} days`
     case 3: return formatBytes(gc.value)
     case 4: return `Plan #${gc.value}`
@@ -100,9 +103,9 @@ async function deleteGiftcard(id: number) {
 /* ── Value placeholder helper ── */
 function valuePlaceholder() {
   switch (form.value.type) {
-    case 1: return 'Amount in dollars (e.g. 50)'
-    case 2: return 'Duration in days (e.g. 30)'
-    case 3: return 'Traffic in GB (e.g. 100)'
+    case 1: return t('admin.giftcards.typeAmount') + ' (e.g. 50)'
+    case 2: return t('admin.giftcards.typeDuration') + ' in days (e.g. 30)'
+    case 3: return t('admin.giftcards.typeTraffic') + ' in GB (e.g. 100)'
     case 4: return 'Plan ID (e.g. 2)'
     default: return 'Value'
   }
@@ -110,9 +113,9 @@ function valuePlaceholder() {
 
 function valueLabel() {
   switch (form.value.type) {
-    case 1: return 'Amount ($)'
-    case 2: return 'Duration (days)'
-    case 3: return 'Traffic (GB)'
+    case 1: return t('admin.giftcards.typeAmount') + ' (¥)'
+    case 2: return t('admin.giftcards.typeDuration') + ' (days)'
+    case 3: return t('admin.giftcards.typeTraffic') + ' (GB)'
     case 4: return 'Plan ID'
     default: return 'Value'
   }
@@ -122,23 +125,23 @@ function valueLabel() {
 <template>
   <div class="admin-giftcards">
     <div class="page-header stagger-1">
-      <h1 class="page-title">Gift Cards</h1>
-      <button class="btn-primary" @click="openGenerate">+ Generate Gift Cards</button>
+      <h1 class="page-title">{{ t('admin.giftcards.title') }}</h1>
+      <button class="btn-primary" @click="openGenerate">+ {{ t('admin.giftcards.generateTitle') }}</button>
     </div>
 
     <!-- Stats Summary -->
     <div class="stats-row stagger-2">
       <div class="stat-chip">
         <span class="stat-value">{{ giftcards.length }}</span>
-        <span class="stat-label">Total</span>
+        <span class="stat-label">{{ t('admin.giftcards.total') }}</span>
       </div>
       <div class="stat-chip">
         <span class="stat-value stat-success">{{ giftcards.filter(g => g.status === 0).length }}</span>
-        <span class="stat-label">Unused</span>
+        <span class="stat-label">{{ t('admin.giftcards.unused') }}</span>
       </div>
       <div class="stat-chip">
         <span class="stat-value stat-muted">{{ giftcards.filter(g => g.status === 1).length }}</span>
-        <span class="stat-label">Used</span>
+        <span class="stat-label">{{ t('admin.giftcards.used') }}</span>
       </div>
     </div>
 
@@ -148,12 +151,12 @@ function valueLabel() {
         <thead>
           <tr>
             <th>ID</th>
-            <th>Code</th>
-            <th>Type</th>
-            <th>Value</th>
-            <th>Status</th>
-            <th>Created</th>
-            <th>Actions</th>
+            <th>{{ t('admin.giftcards.code') }}</th>
+            <th>{{ t('admin.giftcards.type') || 'Type' }}</th>
+            <th>{{ t('admin.giftcards.amount') }}</th>
+            <th>{{ t('admin.giftcards.status') }}</th>
+            <th>{{ t('admin.giftcards.usedAt') }}</th>
+            <th>{{ t('common.edit') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -176,7 +179,7 @@ function valueLabel() {
             <td class="col-date">
               <div>{{ formatDate(gc.created_at) }}</div>
               <div v-if="gc.used_by" class="used-info">
-                Used by {{ gc.used_by }}
+                {{ t('admin.giftcards.usedBy') }}: {{ gc.used_by }}
               </div>
             </td>
             <td class="col-actions">
@@ -184,16 +187,16 @@ function valueLabel() {
                 v-if="confirmDeleteId !== gc.id"
                 class="btn-ghost btn-sm btn-danger"
                 @click="confirmDeleteId = gc.id"
-              >Delete</button>
+              >{{ t('common.delete') }}</button>
               <template v-else>
-                <button class="btn-ghost btn-sm btn-danger" @click="deleteGiftcard(gc.id)">Confirm</button>
-                <button class="btn-ghost btn-sm" @click="confirmDeleteId = null">Cancel</button>
+                <button class="btn-ghost btn-sm btn-danger" @click="deleteGiftcard(gc.id)">{{ t('common.confirm') }}</button>
+                <button class="btn-ghost btn-sm" @click="confirmDeleteId = null">{{ t('common.cancel') }}</button>
               </template>
             </td>
           </tr>
         </tbody>
       </table>
-      <div v-if="!giftcards.length" class="empty-state">No gift cards found.</div>
+      <div v-if="!giftcards.length" class="empty-state">{{ t('common.noData') || 'No gift cards found.' }}</div>
     </div>
 
     <!-- Generate Modal -->
@@ -201,15 +204,15 @@ function valueLabel() {
       <transition name="fade">
         <div v-if="showModal" class="modal-overlay" @click.self="showModal = false">
           <div class="modal-box">
-            <h2 class="modal-title">Generate Gift Cards</h2>
+            <h2 class="modal-title">{{ t('admin.giftcards.generateTitle') }}</h2>
 
             <div class="form-group">
-              <label>Type</label>
+              <label>{{ t('admin.giftcards.type') || 'Type' }}</label>
               <select v-model="form.type" class="or-input">
-                <option :value="1">Amount (balance credit)</option>
-                <option :value="2">Duration (days)</option>
-                <option :value="3">Traffic (GB)</option>
-                <option :value="4">Plan (assign plan)</option>
+                <option :value="1">{{ t('admin.giftcards.typeAmount') }}</option>
+                <option :value="2">{{ t('admin.giftcards.typeDuration') }}</option>
+                <option :value="3">{{ t('admin.giftcards.typeTraffic') }}</option>
+                <option :value="4">{{ t('admin.giftcards.typePlan') }}</option>
               </select>
             </div>
 
@@ -225,24 +228,23 @@ function valueLabel() {
             </div>
 
             <div class="form-group">
-              <label>Generate Count</label>
+              <label>{{ t('admin.giftcards.generateCount') }}</label>
               <input
                 v-model.number="form.generate_count"
                 type="number"
                 class="or-input"
                 min="1"
                 max="500"
-                placeholder="Number of cards to generate"
               />
             </div>
 
             <div class="preview-box">
-              <span class="preview-label">Preview</span>
+              <span class="preview-label">{{ t('admin.giftcards.preview') }}</span>
               <div class="preview-content">
                 <span class="preview-type">{{ typeMap[form.type]?.text }}</span>
                 <span class="preview-sep">--</span>
                 <span class="preview-value">
-                  {{ form.type === 1 ? `$${form.value}` : form.type === 2 ? `${form.value} days` : form.type === 3 ? `${form.value} GB` : `Plan #${form.value}` }}
+                  {{ form.type === 1 ? `¥${form.value}` : form.type === 2 ? `${form.value} days` : form.type === 3 ? `${form.value} GB` : `Plan #${form.value}` }}
                 </span>
                 <span class="preview-sep">x</span>
                 <span class="preview-count">{{ form.generate_count }}</span>
@@ -250,12 +252,12 @@ function valueLabel() {
             </div>
 
             <div class="modal-actions">
-              <button class="btn-ghost" @click="showModal = false">Cancel</button>
+              <button class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
               <button
                 class="btn-gradient"
                 :disabled="!form.value"
                 @click="submitGenerate"
-              >Generate {{ form.generate_count }} Card{{ form.generate_count > 1 ? 's' : '' }}</button>
+              >{{ t('admin.giftcards.generate') }} {{ form.generate_count > 1 ? `(${form.generate_count})` : '' }}</button>
             </div>
           </div>
         </div>
@@ -294,7 +296,7 @@ function valueLabel() {
 /* Table */
 .table-wrap {
   background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: $card-radius; overflow: hidden;
+  border-radius: $card-radius; overflow: hidden; overflow-x: auto;
 }
 .admin-table {
   width: 100%; border-collapse: collapse;
@@ -379,7 +381,6 @@ function valueLabel() {
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
 @media (max-width: $bp-tablet) {
-  .admin-table { display: block; overflow-x: auto; }
   .stats-row { flex-wrap: wrap; }
 }
 </style>

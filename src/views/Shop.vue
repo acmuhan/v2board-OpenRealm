@@ -1,25 +1,33 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import MarkdownRenderer from '../components/common/MarkdownRenderer.vue'
 import { planApi, orderApi, couponApi } from '../api'
+import { useCheckout } from '../composables/useCheckout'
+import { useToastStore } from '../stores/toast'
 
-const router = useRouter()
+const { t } = useI18n()
+const toast = useToastStore()
+const { showPayModal, payMethods, payLoading, methodLoading, openPayment, confirmPay, cancelAndClose, formatFee } = useCheckout()
+
 const plans = ref<any[]>([])
 const loading = ref(true)
 const selectedPlan = ref<any>(null)
 const selectedCycle = ref('')
 const coupon = ref('')
 const couponResult = ref<any>(null)
+const couponChecking = ref(false)
 const ordering = ref(false)
+const pendingTradeNo = ref('')
 
 const cycles: Record<string, string> = {
-  month_price: '月付',
-  quarter_price: '季付',
-  half_year_price: '半年付',
-  year_price: '年付',
-  two_year_price: '两年付',
-  three_year_price: '三年付',
-  onetime_price: '一次性',
+  month_price: t('shop.monthly'),
+  quarter_price: t('shop.quarterly'),
+  half_year_price: t('shop.halfYearly'),
+  year_price: t('shop.yearly'),
+  two_year_price: t('shop.twoYear'),
+  three_year_price: t('shop.threeYear'),
+  onetime_price: t('shop.onetime'),
 }
 
 onMounted(async () => {
@@ -33,6 +41,8 @@ function selectPlan(plan: any) {
   selectedPlan.value = plan
   const firstCycle = Object.keys(cycles).find(k => plan[k] !== null && plan[k] !== undefined)
   selectedCycle.value = firstCycle || ''
+  coupon.value = ''
+  couponResult.value = null
 }
 
 function getPrice(plan: any, cycle: string) {
@@ -45,10 +55,15 @@ function availableCycles(plan: any) {
 
 async function checkCoupon() {
   if (!coupon.value || !selectedPlan.value) return
+  couponChecking.value = true
   try {
     const res: any = await couponApi.check({ code: coupon.value, plan_id: selectedPlan.value.id })
     couponResult.value = res.data
-  } catch { couponResult.value = null }
+    toast.success('优惠券有效')
+  } catch (e: any) {
+    couponResult.value = null
+    toast.error(e?.message || '优惠券无效')
+  } finally { couponChecking.value = false }
 }
 
 async function handleOrder() {
@@ -60,22 +75,27 @@ async function handleOrder() {
       cycle: selectedCycle.value,
       coupon_code: coupon.value || undefined,
     })
-    if (res.data) router.push('/orders')
+    const tradeNo = res.data
+    if (tradeNo) {
+      pendingTradeNo.value = tradeNo
+      await openPayment(tradeNo)
+    }
+  } catch (e: any) {
+    toast.error(e?.message || '创建订单失败')
   } finally { ordering.value = false }
 }
 
-function planText(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n')
-    .replace(/<\/li>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&amp;/gi, '&')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
+async function handleConfirmPay(methodId: number) {
+  const result = await confirmPay(methodId)
+  if (result?.success && !result.redirect) {
+    // Balance pay success — nothing to do, stay on page
+  }
+}
+
+function handleClosePayModal() {
+  cancelAndClose()
+  // Don't cancel the order — user can pay later from Orders page
+  pendingTradeNo.value = ''
 }
 
 const planGradients = [
@@ -89,11 +109,11 @@ const planGradients = [
 <template>
   <div class="shop-page">
     <div class="page-header stagger-1">
-      <h1>购买套餐</h1>
-      <p class="page-desc">选择适合您的订阅计划</p>
+      <h1>{{ t('shop.title') }}</h1>
+      <p class="page-desc">{{ t('shop.selectPayment') }}</p>
     </div>
 
-    <div v-if="loading" class="loading-text">加载中...</div>
+    <div v-if="loading" class="loading-text">{{ t('common.loading') }}</div>
 
     <div v-else class="plan-grid">
       <div
@@ -103,14 +123,17 @@ const planGradients = [
         :style="{ background: planGradients[idx % planGradients.length] }"
         @click="selectPlan(plan)"
       >
-        <div class="plan-badge" v-if="idx === 1">推荐</div>
+        <div class="plan-badge" v-if="idx === 1">{{ t('shop.popular') }}</div>
         <div class="plan-header">
           <h3>{{ plan.name }}</h3>
           <span v-if="plan.month_price !== null" class="plan-price">
-            &yen;{{ (plan.month_price / 100).toFixed(0) }}<small>/月起</small>
+            &yen;{{ (plan.month_price / 100).toFixed(0) }}<small>/{{ t('shop.monthly') }}</small>
           </span>
         </div>
-        <p class="plan-desc">{{ plan.content ? planText(plan.content) : '高速稳定的网络加速服务' }}</p>
+        <div class="plan-desc">
+          <MarkdownRenderer v-if="plan.content" :content="plan.content" />
+          <span v-else class="plan-desc-empty">高速稳定的网络加速服务</span>
+        </div>
         <ul class="plan-features">
           <li v-if="plan.transfer_enable">
             流量: {{ (plan.transfer_enable / (1024*1024*1024)).toFixed(0) }} GB
@@ -131,7 +154,7 @@ const planGradients = [
     <!-- Order Panel -->
     <transition name="fade-slide">
       <div v-if="selectedPlan" class="order-panel card-glow stagger-8">
-        <h3>选择周期 - {{ selectedPlan.name }}</h3>
+        <h3>{{ t('shop.monthly') }} — {{ selectedPlan.name }}</h3>
         <div class="cycle-grid">
           <button
             v-for="[key, label] in availableCycles(selectedPlan)"
@@ -145,15 +168,72 @@ const planGradients = [
         </div>
 
         <div class="coupon-row">
-          <input v-model="coupon" class="or-input" placeholder="优惠码（可选）" />
-          <button class="btn-ghost" @click="checkCoupon">验证</button>
+          <input v-model="coupon" class="or-input" :placeholder="t('shop.couponPlaceholder')" />
+          <button class="btn-ghost" :disabled="couponChecking" @click="checkCoupon">
+            {{ couponChecking ? t('common.loading') : t('shop.apply') }}
+          </button>
+        </div>
+        <div v-if="couponResult" class="coupon-result">
+          <span class="coupon-ok">
+            {{ couponResult.type === 1 ? `优惠 ¥${(couponResult.value/100).toFixed(2)}` : `${couponResult.value}% 折扣` }}
+          </span>
         </div>
 
         <button class="btn-gradient order-btn" @click="handleOrder" :disabled="ordering || !selectedCycle">
-          {{ ordering ? '提交中...' : '立即购买' }}
+          {{ ordering ? t('common.loading') : t('shop.buyNow') }}
         </button>
       </div>
     </transition>
+
+    <!-- Payment Method Modal -->
+    <Teleport to="body">
+      <transition name="fade">
+        <div v-if="showPayModal" class="modal-overlay" @click.self="handleClosePayModal">
+          <div class="pay-modal">
+            <div class="pay-modal-header">
+              <h2>{{ t('shop.paymentMethod') }}</h2>
+              <button class="pay-close" @click="handleClosePayModal">✕</button>
+            </div>
+
+            <div v-if="methodLoading" class="pay-loading">{{ t('common.loading') }}</div>
+
+            <div v-else-if="payMethods.length" class="pay-methods">
+              <button
+                v-for="m in payMethods"
+                :key="m.id"
+                class="pay-method-btn"
+                :disabled="payLoading"
+                @click="handleConfirmPay(m.id)"
+              >
+                <div class="pay-method-icon">
+                  <img v-if="m.icon" :src="m.icon" :alt="m.name" width="28" height="28" />
+                  <svg v-else width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"/>
+                  </svg>
+                </div>
+                <div class="pay-method-info">
+                  <span class="pay-method-name">{{ m.name }}</span>
+                  <span v-if="formatFee(m, selectedPlan ? (selectedPlan[selectedCycle] || 0) : 0)" class="pay-method-fee">
+                    {{ formatFee(m, selectedPlan ? (selectedPlan[selectedCycle] || 0) : 0) }}
+                  </span>
+                </div>
+                <svg class="pay-method-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 18l6-6-6-6"/>
+                </svg>
+              </button>
+            </div>
+
+            <div v-else class="pay-empty">
+              <p>暂无可用支付方式，请联系管理员</p>
+            </div>
+
+            <div v-if="payLoading" class="pay-loading-overlay">
+              <div class="pay-spinner"></div>
+            </div>
+          </div>
+        </div>
+      </transition>
+    </Teleport>
   </div>
 </template>
 
@@ -194,7 +274,12 @@ const planGradients = [
   font-family: 'Space Grotesk', sans-serif;
   small { font-size: 12px; font-weight: 500; }
 }
-.plan-desc { font-size: 13px; color: var(--text-2); margin-bottom: $gap-md; white-space: pre-line; max-height: 80px; overflow: hidden; }
+.plan-desc {
+  font-size: 13px; margin-bottom: $gap-md;
+  max-height: 80px; overflow: hidden;
+  :deep(.md-body) { font-size: 13px; color: var(--text-2); }
+}
+.plan-desc-empty { color: var(--text-2); }
 .plan-features {
   list-style: none; margin-bottom: $gap-md;
   li { font-size: 13px; color: var(--text-2); padding: 4px 0; &::before { content: '+ '; color: var(--accent); font-weight: 700; } }
@@ -221,6 +306,67 @@ const planGradients = [
 .cycle-label { font-size: 13px; }
 .cycle-price { font-size: 16px; font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
 
-.coupon-row { display: flex; gap: $gap-sm; margin-bottom: $gap-md; .or-input { flex: 1; } }
+.coupon-row { display: flex; gap: $gap-sm; margin-bottom: $gap-sm; .or-input { flex: 1; } }
+.coupon-result { margin-bottom: $gap-md; }
+.coupon-ok { font-size: 13px; color: var(--success); font-weight: 600; }
 .order-btn { width: 100%; height: 48px; font-size: 16px; &:disabled { opacity: 0.6; cursor: not-allowed; } }
+
+// Payment Modal
+.modal-overlay {
+  position: fixed; inset: 0; z-index: $z-modal;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+  display: flex; align-items: flex-end; justify-content: center;
+  @media (min-width: $bp-tablet) { align-items: center; }
+}
+.pay-modal {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: $card-radius $card-radius 0 0;
+  padding: $gap-lg;
+  width: 100%; max-width: 480px; position: relative;
+  @media (min-width: $bp-tablet) {
+    border-radius: $card-radius;
+    max-height: 90vh; overflow-y: auto;
+  }
+}
+.pay-modal-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: $gap-lg;
+  h2 { font-size: 18px; font-weight: 700; }
+}
+.pay-close {
+  width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+  background: var(--bg-2); color: var(--text-2); font-size: 14px;
+  &:hover { background: var(--bg-card-hover); color: var(--text-1); }
+}
+.pay-methods { display: flex; flex-direction: column; gap: $gap-sm; }
+.pay-method-btn {
+  display: flex; align-items: center; gap: $gap-md;
+  padding: 14px 16px; border-radius: 10px;
+  background: var(--bg-1); border: 1px solid var(--border);
+  text-align: left; transition: all 0.15s; cursor: pointer;
+  &:hover:not(:disabled) { border-color: var(--brand); background: rgba(var(--brand-rgb), 0.05); }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+.pay-method-icon {
+  width: 40px; height: 40px; border-radius: 8px;
+  background: var(--bg-2); display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; color: var(--brand);
+  img { border-radius: 4px; object-fit: contain; }
+}
+.pay-method-info { flex: 1; }
+.pay-method-name { display: block; font-size: 14px; font-weight: 600; color: var(--text-1); }
+.pay-method-fee { display: block; font-size: 12px; color: var(--text-3); margin-top: 2px; }
+.pay-method-arrow { color: var(--text-3); flex-shrink: 0; }
+.pay-loading { text-align: center; padding: $gap-xl; color: var(--text-3); }
+.pay-empty { text-align: center; padding: $gap-xl; color: var(--text-3); }
+.pay-loading-overlay {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.3); border-radius: $card-radius;
+  display: flex; align-items: center; justify-content: center;
+}
+.pay-spinner {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 3px solid var(--border);
+  border-top-color: var(--brand);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>
