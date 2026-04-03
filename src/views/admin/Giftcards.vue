@@ -2,8 +2,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminGiftcardApi } from '../../api/admin'
+import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
+const toast = useToastStore()
 
 /* ── Types ── */
 interface Giftcard {
@@ -48,8 +50,10 @@ async function loadGiftcards() {
   try {
     const res: any = await adminGiftcardApi.fetch()
     giftcards.value = res.data || []
-  } catch { giftcards.value = [] }
-  finally { loading.value = false }
+  } catch (e: any) {
+    giftcards.value = []
+    toast.error(e?.message || '加载礼品卡失败')
+  } finally { loading.value = false }
 }
 
 onMounted(() => loadGiftcards())
@@ -89,13 +93,23 @@ async function submitGenerate() {
     generate_count: form.value.generate_count,
   }
 
-  try { await adminGiftcardApi.generate(payload) } catch { /* ignore */ }
+  try {
+    await adminGiftcardApi.generate(payload)
+    toast.success('礼品卡已生成')
+  } catch (e: any) {
+    toast.error(e?.message || '生成礼品卡失败')
+  }
   showModal.value = false
   await loadGiftcards()
 }
 
 async function deleteGiftcard(id: number) {
-  try { await adminGiftcardApi.drop({ id }) } catch { /* ignore */ }
+  try {
+    await adminGiftcardApi.drop({ id })
+    toast.success('礼品卡已删除')
+  } catch (e: any) {
+    toast.error(e?.message || '删除失败')
+  }
   confirmDeleteId.value = null
   await loadGiftcards()
 }
@@ -126,7 +140,7 @@ function valueLabel() {
   <div class="admin-giftcards">
     <div class="page-header stagger-1">
       <h1 class="page-title">{{ t('admin.giftcards.title') }}</h1>
-      <button class="btn-primary" @click="openGenerate">+ {{ t('admin.giftcards.generateTitle') }}</button>
+      <button class="btn-gradient" @click="openGenerate">+ {{ t('admin.giftcards.generateTitle') }}</button>
     </div>
 
     <!-- Stats Summary -->
@@ -275,7 +289,7 @@ function valueLabel() {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: $gap-lg;
 }
-.page-title { font-size: 22px; font-weight: 700; }
+.page-title { font-size: 24px; font-weight: 700; }
 
 /* Stats */
 .stats-row { display: flex; gap: $gap-md; margin-bottom: $gap-lg; }

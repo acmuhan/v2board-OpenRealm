@@ -109,7 +109,7 @@ function formatDate(ts: number) {
   <div class="admin-notices">
     <div class="page-header stagger-1">
       <h1 class="page-title">{{ t('admin.notices.title') }}</h1>
-      <button class="btn-primary" @click="openAdd">+ {{ t('admin.notices.add') }}</button>
+      <button class="btn-gradient" @click="openAdd">+ {{ t('admin.notices.add') }}</button>
     </div>
 
     <!-- Notice List -->
@@ -206,7 +206,7 @@ function formatDate(ts: number) {
             <div class="modal-actions">
               <button class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
               <button
-                class="btn-primary"
+                class="btn-gradient"
                 :disabled="!form.title.trim() || saving"
                 @click="saveNotice"
               >{{ saving ? '...' : (editingId ? t('admin.notices.saveChanges') : t('admin.notices.createNotice')) }}</button>
@@ -227,7 +227,7 @@ function formatDate(ts: number) {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: $gap-lg;
 }
-.page-title { font-size: 22px; font-weight: 700; }
+.page-title { font-size: 24px; font-weight: 700; }
 
 /* Notice Cards */
 .notice-grid { display: flex; flex-direction: column; gap: $gap-md; }

@@ -244,7 +244,7 @@ function nextPage() {
     </transition>
 
     <!-- Top Bar -->
-    <div class="top-bar stagger-1">
+    <div class="page-header stagger-1">
       <div class="bar-left">
         <div class="search-group">
           <select v-model="searchType" class="or-input search-type-select">
@@ -573,7 +573,7 @@ function nextPage() {
 }
 
 // ── Top Bar ──
-.top-bar {
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -991,7 +991,7 @@ function nextPage() {
 
 // ── Responsive ──
 @media (max-width: $bp-mobile) {
-  .top-bar {
+  .page-header {
     flex-direction: column;
     align-items: stretch;
   }

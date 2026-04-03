@@ -1,14 +1,31 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { useUserStore } from '../stores/user'
 import { noticeApi } from '../api'
 import SvgIcon from '../components/common/SvgIcon.vue'
+import QRCode from 'qrcode'
 
 const userStore = useUserStore()
 const notices = ref<any[]>([])
 const subLink = ref('')
 const copied = ref(false)
 const activeNotice = ref<any>(null)
+const subRevealed = ref(false)
+const showQR = ref(false)
+const qrCanvas = ref<HTMLCanvasElement | null>(null)
+
+async function generateQR() {
+  showQR.value = !showQR.value
+  if (showQR.value && subLink.value) {
+    await nextTick()
+    if (qrCanvas.value) {
+      QRCode.toCanvas(qrCanvas.value, subLink.value, {
+        width: 180, margin: 2,
+        color: { dark: '#ffffff', light: '#00000000' },
+      })
+    }
+  }
+}
 
 const planName = computed(() => userStore.subscribe?.plan?.name || 'Free')
 const isActive = computed(() => !!userStore.subscribe?.plan)
@@ -19,10 +36,34 @@ const expireDate = computed(() => {
 const balance = computed(() => ((userStore.info?.balance || 0) / 100).toFixed(2))
 const commission = computed(() => ((userStore.info?.commission_balance || 0) / 100).toFixed(2))
 
-// Mock 7-day traffic data for chart
-const chartData = ref([35, 52, 41, 68, 45, 78, 56])
-const chartDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-const chartMax = computed(() => Math.max(...chartData.value, 1))
+// Personalized greeting
+const greeting = computed(() => {
+  const h = new Date().getHours()
+  if (h >= 5 && h < 12) return '早上好'
+  if (h >= 12 && h < 18) return '下午好'
+  if (h >= 18 && h < 23) return '晚上好'
+  return '还没睡呢'
+})
+const username = computed(() => userStore.info?.email?.split('@')[0] || '')
+
+// Days until expiry
+const daysLeft = computed(() => {
+  if (!userStore.info?.expired_at) return -1
+  const ms = userStore.info.expired_at * 1000 - Date.now()
+  return Math.max(0, Math.ceil(ms / 86400000))
+})
+
+// Real upload / download percentages of total quota
+const uploadPct = computed(() => {
+  const total = userStore.totalTraffic
+  if (!total) return 0
+  return Math.min(100, Math.round(((userStore.subscribe?.u || 0) / total) * 100))
+})
+const downloadPct = computed(() => {
+  const total = userStore.totalTraffic
+  if (!total) return 0
+  return Math.min(100, Math.round(((userStore.subscribe?.d || 0) / total) * 100))
+})
 
 onMounted(async () => {
   try {
@@ -54,14 +95,18 @@ function copyLink() {
 <template>
   <div class="dashboard">
     <div class="page-header stagger-1">
-      <h1>控制台</h1>
+      <div class="greeting-block">
+        <span class="greeting-sub">{{ greeting }}</span>
+        <h1>{{ username || '控制台' }}</h1>
+      </div>
       <button class="btn-gradient" @click="$router.push('/shop')">升级计划</button>
     </div>
 
     <!-- Bento Grid -->
     <div class="bento">
-      <!-- 1. Status (2x1) -->
-      <div class="bento-item span-2 card-accent stagger-2" style="padding: 24px;">
+      <!-- 1. Status (2x1) — premium wallet card -->
+      <div class="bento-item span-2 card-premium stagger-2" style="padding: 24px;">
+        <div class="card-inner-mesh"></div>
         <div class="status-row">
           <div :class="['status-orb', { active: isActive }]">
             <div class="orb-core"></div>
@@ -72,7 +117,7 @@ function copyLink() {
             <span class="status-badge" :class="isActive ? 'on' : 'off'">
               {{ isActive ? 'CONNECTED' : 'INACTIVE' }}
             </span>
-            <h2 class="plan-name">{{ planName }}</h2>
+            <h2 :class="['plan-name', { 'gradient-text': isActive }]">{{ planName }}</h2>
           </div>
         </div>
         <div class="meta-row">
@@ -83,18 +128,18 @@ function copyLink() {
           <div class="meta-divider"></div>
           <div class="meta-block">
             <span class="meta-label">余额</span>
-            <span class="meta-value">&yen;{{ balance }}</span>
+            <span class="meta-value gradient-number">&yen;{{ balance }}</span>
           </div>
           <div class="meta-divider"></div>
           <div class="meta-block">
             <span class="meta-label">佣金</span>
-            <span class="meta-value">&yen;{{ commission }}</span>
+            <span class="meta-value gradient-number">&yen;{{ commission }}</span>
           </div>
         </div>
       </div>
 
       <!-- 2. Traffic gauge (1x1) -->
-      <div class="bento-item card-glow stagger-3" style="padding: 24px;">
+      <div class="bento-item card-accent stagger-3" style="padding: 24px;">
         <span class="section-title">流量使用</span>
         <div class="gauge-area">
           <svg viewBox="0 0 120 70" class="gauge-svg">
@@ -110,7 +155,7 @@ function copyLink() {
               style="transition: stroke-dasharray 0.8s cubic-bezier(0.16, 1, 0.3, 1);" />
           </svg>
           <div class="gauge-label">
-            <span class="gauge-pct">{{ userStore.trafficPercent }}%</span>
+            <span class="gauge-pct gradient-number">{{ userStore.trafficPercent }}%</span>
           </div>
         </div>
         <div class="traffic-nums">
@@ -123,26 +168,40 @@ function copyLink() {
         </div>
       </div>
 
-      <!-- 3. 7-day chart (2x1) -->
+      <!-- 3. Usage Detail (2x1) — real data, no mock -->
       <div class="bento-item span-2 card stagger-4" style="padding: 24px;">
-        <div class="chart-header">
-          <span class="section-title" style="margin:0">近 7 天流量</span>
-          <div class="chart-legend">
-            <span class="legend-dot" style="background: var(--brand)"></span> 使用
+        <div class="usage-header">
+          <span class="section-title" style="margin:0">用量详情</span>
+          <div v-if="daysLeft >= 0" class="days-chip" :class="{ urgent: daysLeft <= 7 }">
+            <span class="days-num">{{ daysLeft }}</span>
+            <span class="days-label">天后到期</span>
+          </div>
+          <span v-else class="days-chip no-plan">未订阅</span>
+        </div>
+        <div class="usage-bars">
+          <div class="usage-row">
+            <span class="usage-dir up">↑</span>
+            <span class="usage-name">上传</span>
+            <div class="usage-track">
+              <div class="usage-fill up" :style="{ width: uploadPct + '%' }"></div>
+            </div>
+            <span class="usage-val">{{ userStore.formatBytes(userStore.subscribe?.u || 0) }}</span>
+          </div>
+          <div class="usage-row">
+            <span class="usage-dir down">↓</span>
+            <span class="usage-name">下载</span>
+            <div class="usage-track">
+              <div class="usage-fill down" :style="{ width: downloadPct + '%' }"></div>
+            </div>
+            <span class="usage-val">{{ userStore.formatBytes(userStore.subscribe?.d || 0) }}</span>
           </div>
         </div>
-        <div class="chart-area">
-          <div class="chart-bars">
-            <div v-for="(val, i) in chartData" :key="i" class="bar-col">
-              <div class="bar-track">
-                <div
-                  class="bar-fill"
-                  :style="{ height: (val / chartMax) * 100 + '%', animationDelay: i * 0.08 + 's' }"
-                ></div>
-              </div>
-              <span class="bar-label">{{ chartDays[i] }}</span>
-            </div>
-          </div>
+        <div class="usage-footer">
+          <span class="usage-footer-label">本周期已用</span>
+          <span class="usage-footer-val gradient-number">{{ userStore.formatBytes(userStore.usedTraffic) }}</span>
+          <span class="usage-footer-sep">/</span>
+          <span class="usage-footer-cap">{{ userStore.formatBytes(userStore.totalTraffic) }}</span>
+          <span class="usage-footer-pct">{{ userStore.trafficPercent }}%</span>
         </div>
       </div>
 
@@ -184,12 +243,34 @@ function copyLink() {
 
       <!-- 6. Subscribe (1x) -->
       <div class="bento-item card stagger-7" style="padding: 24px;">
-        <span class="section-title">订阅</span>
+        <span class="section-title">订阅链接</span>
         <div class="sub-col">
-          <input :value="subLink" readonly class="or-input mono-input" placeholder="获取订阅后显示" />
-          <button class="btn-ghost copy-btn" @click="copyLink">
-            {{ copied ? '已复制' : '复制链接' }}
-          </button>
+          <div class="sub-input-wrap" :class="{ masked: !subRevealed && subLink }">
+            <input :value="subLink" readonly class="or-input mono-input" placeholder="暂无订阅" />
+            <div v-if="!subRevealed && subLink" class="sub-mask" @click="subRevealed = true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <span>点击查看</span>
+            </div>
+          </div>
+          <div class="sub-actions">
+            <button class="btn-ghost copy-btn" @click="copyLink" :disabled="!subLink">
+              {{ copied ? '✓ 已复制' : '复制' }}
+            </button>
+            <button class="btn-ghost qr-btn" @click="generateQR" :disabled="!subLink" :class="{ active: showQR }">
+              <SvgIcon name="qrcode" :size="14" />
+              <span>二维码</span>
+            </button>
+          </div>
+          <!-- QR Code panel -->
+          <transition name="fade-slide">
+            <div v-if="showQR && subLink" class="qr-panel">
+              <canvas ref="qrCanvas" class="qr-canvas"></canvas>
+              <p class="qr-hint">移动端扫码导入</p>
+            </div>
+          </transition>
         </div>
       </div>
     </div>
@@ -219,6 +300,12 @@ function copyLink() {
   margin-bottom: $gap-lg;
   h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
 }
+.greeting-block { display: flex; flex-direction: column; gap: 1px; }
+.greeting-sub {
+  font-size: 11px; font-weight: 600; color: var(--text-3);
+  text-transform: uppercase; letter-spacing: 0.8px;
+  font-family: 'Space Grotesk', sans-serif;
+}
 
 // Bento Grid
 .bento {
@@ -236,30 +323,42 @@ function copyLink() {
   display: flex; align-items: center; justify-content: center;
 }
 .orb-core {
-  width: 16px; height: 16px; border-radius: 50%;
+  width: 14px; height: 14px; border-radius: 50%;
   background: var(--text-3);
-  transition: all 0.5s;
-  .active & { background: var(--accent); box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.6); }
-}
-.orb-ring {
-  position: absolute; inset: 0; border-radius: 50%;
-  border: 1.5px solid transparent;
+  transition: background 0.5s ease, box-shadow 0.5s ease;
   .active & {
-    border-color: rgba(var(--accent-rgb), 0.3);
-    animation: pulse-ring 2s ease-out infinite;
+    background: var(--grad-brand);
+    box-shadow: 0 0 8px rgba(var(--brand-rgb), 0.5);
+    animation: breathe 3.5s ease-in-out infinite;
   }
 }
-.orb-ring.r2 {
-  .active & { animation-delay: 0.6s; }
+.orb-ring {
+  position: absolute; inset: -10px; border-radius: 50%;
+  border: 1px solid transparent;
+  .active & { border-color: rgba(var(--brand-rgb), 0.16); }
 }
+// second ring removed — less is more
+.orb-ring.r2 { display: none; }
 .status-badge {
   display: inline-block;
   font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
-  padding: 2px 8px; border-radius: 4px;
-  &.on { background: rgba(var(--accent-rgb), 0.15); color: var(--accent); }
-  &.off { background: rgba(255,255,255,0.06); color: var(--text-3); }
+  padding: 3px 10px; border-radius: 5px;
+  &.on {
+    background: linear-gradient(90deg, rgba(var(--brand-rgb), 0.2), rgba(var(--accent-rgb), 0.15));
+    color: var(--brand-light);
+    border: 1px solid rgba(var(--brand-rgb), 0.3);
+  }
+  &.off { background: var(--bg-muted); color: var(--text-3); border: 1px solid var(--border); }
 }
-.plan-name { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; margin-top: 4px; }
+.plan-name {
+  font-size: 26px; font-weight: 700; letter-spacing: -0.5px; margin-top: 4px;
+  &.gradient-text {
+    background: var(--grad-number);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
 
 .meta-row { display: flex; align-items: center; gap: 24px; }
 .meta-block { display: flex; flex-direction: column; gap: 2px; }
@@ -268,40 +367,72 @@ function copyLink() {
 .meta-divider { width: 1px; height: 32px; background: var(--border); }
 
 // Gauge
-.gauge-area { position: relative; display: flex; justify-content: center; margin: 8px 0; }
-.gauge-svg { width: 140px; height: 80px; }
+.gauge-area { position: relative; display: flex; justify-content: center; margin: 8px 0; overflow: hidden; }
+.gauge-svg { width: 140px; height: 80px; max-width: 100%; flex-shrink: 0; display: block; }
 .gauge-label { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); }
 .gauge-pct { font-size: 20px; font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
 .traffic-nums { text-align: center; }
-.t-used { font-size: 15px; font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
+.t-used { font-size: 15px; font-weight: 700; font-family: 'Space Grotesk', sans-serif; background: var(--grad-number); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 .t-total { font-size: 12px; color: var(--text-3); }
 .traffic-detail { display: flex; justify-content: center; gap: 20px; margin-top: 4px; font-size: 11px; color: var(--text-3); }
 
-// Chart
-.chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: $gap-md; }
-.chart-legend { font-size: 11px; color: var(--text-3); display: flex; align-items: center; gap: 6px; }
-.legend-dot { width: 8px; height: 8px; border-radius: 2px; }
-.chart-area { height: 120px; }
-.chart-bars { display: flex; gap: 8px; height: 100%; align-items: flex-end; }
-.bar-col {
-  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;
-  height: 100%;
+// Usage detail
+.usage-header {
+  display: flex; align-items: center; gap: 10px; margin-bottom: $gap-md;
 }
-.bar-track {
-  flex: 1; width: 100%; max-width: 28px; border-radius: 6px;
-  background: rgba(255,255,255,0.03);
-  display: flex; flex-direction: column; justify-content: flex-end;
+.days-chip {
+  display: flex; align-items: baseline; gap: 3px;
+  padding: 3px 10px; border-radius: 20px;
+  background: rgba(var(--brand-rgb), 0.10);
+  border: 1px solid rgba(var(--brand-rgb), 0.2);
+  &.urgent {
+    background: rgba(239,68,68,0.10);
+    border-color: rgba(239,68,68,0.25);
+    .days-num { color: var(--danger); }
+    .days-label { color: rgba(239,68,68,0.7); }
+  }
+  &.no-plan {
+    background: var(--bg-muted);
+    border-color: var(--border);
+  }
+}
+.days-num { font-size: 13px; font-weight: 700; color: var(--brand-light); font-family: 'Space Grotesk', sans-serif; }
+.days-label { font-size: 10px; color: var(--text-3); font-weight: 600; }
+
+.usage-bars { display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px; }
+.usage-row { display: flex; align-items: center; gap: 10px; }
+.usage-dir {
+  font-size: 11px; font-weight: 700; width: 14px; text-align: center;
+  &.up { color: var(--brand-light); }
+  &.down { color: var(--accent); }
+}
+.usage-name { font-size: 11px; color: var(--text-3); font-weight: 600; width: 28px; flex-shrink: 0; }
+.usage-track {
+  flex: 1; height: 6px; border-radius: 3px;
+  background: var(--bg-elevated);
   overflow: hidden;
 }
-.bar-fill {
-  width: 100%; border-radius: 6px;
-  background: var(--grad-brand);
-  animation: barGrow 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+.usage-fill {
+  height: 100%; border-radius: 3px;
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  &.up { background: linear-gradient(90deg, var(--brand), var(--brand-light)); }
+  &.down { background: linear-gradient(90deg, var(--accent), rgba(var(--accent-rgb),0.6)); }
 }
-@keyframes barGrow {
-  from { height: 0 !important; }
+.usage-val { font-size: 11px; font-weight: 600; color: var(--text-2); font-family: 'Space Grotesk', sans-serif; min-width: 50px; text-align: right; }
+
+.usage-footer {
+  display: flex; align-items: baseline; gap: 5px;
+  padding-top: 12px; border-top: 1px solid var(--border);
 }
-.bar-label { font-size: 10px; color: var(--text-3); font-weight: 600; }
+.usage-footer-label { font-size: 11px; color: var(--text-3); font-weight: 600; flex: 1; }
+.usage-footer-val { font-size: 14px; }
+.usage-footer-sep { font-size: 11px; color: var(--text-3); }
+.usage-footer-cap { font-size: 12px; color: var(--text-2); font-family: 'Space Grotesk', sans-serif; }
+.usage-footer-pct {
+  font-size: 10px; font-weight: 700; color: var(--brand-light);
+  background: rgba(var(--brand-rgb), 0.10);
+  padding: 1px 6px; border-radius: 4px; margin-left: 4px;
+}
 
 // Notices
 .notice-list { display: flex; flex-direction: column; gap: 10px; }
@@ -353,21 +484,23 @@ function copyLink() {
 }
 
 // Clients
-.client-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.client-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .client-chip {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 16px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 10px;
   color: var(--text-2); font-size: 13px; font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
   &:hover {
-    border-color: rgba(var(--brand-rgb), 0.2);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+    border-color: rgba(var(--brand-rgb), 0.3);
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: var(--shadow-md), var(--glow-brand);
+    color: var(--text-1);
   }
+  &:active { transform: scale(0.97); }
 }
 .chip-icon {
   width: 36px; height: 36px; border-radius: 8px;
@@ -378,11 +511,53 @@ function copyLink() {
 // Subscribe
 .sub-col { display: flex; flex-direction: column; gap: $gap-sm; }
 .mono-input { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
-.copy-btn { width: 100%; font-size: 12px; padding: 10px; }
+.sub-actions { display: flex; gap: 6px; }
+.copy-btn { flex: 1; font-size: 12px; padding: 10px; }
+.qr-btn {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12px; padding: 10px 14px;
+  &.active { background: rgba(var(--brand-rgb), 0.12); color: var(--brand-light); border-color: rgba(var(--brand-rgb), 0.3); }
+}
+.qr-panel {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 16px; border-radius: 10px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+}
+.qr-canvas {
+  border-radius: 8px;
+  background: rgba(var(--brand-rgb), 0.08);
+  padding: 8px;
+}
+.qr-hint { font-size: 11px; color: var(--text-3); font-weight: 500; }
+.sub-input-wrap {
+  position: relative;
+  &.masked .or-input {
+    filter: blur(5px);
+    user-select: none;
+    pointer-events: none;
+  }
+}
+.sub-mask {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  background: rgba(var(--bg-card), 0.1);
+  backdrop-filter: blur(2px);
+  border-radius: $card-radius-sm;
+  border: 1px dashed var(--border-active);
+  color: var(--brand-light); font-size: 12px; font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  &:hover { background: rgba(var(--brand-rgb), 0.06); border-style: solid; }
+}
 
 @media (max-width: $bp-desktop) {
   .bento { grid-template-columns: 1fr 1fr; }
-  .span-2 { grid-column: span 2; }
+  // span-2 becomes span-1 so status + gauge sit side by side
+  .span-2 { grid-column: span 1; }
+  .meta-row { flex-wrap: wrap; gap: 14px; }
+  // Client chips: 2x2 grid at medium screens
+  .client-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .client-chip { justify-content: flex-start; }
 }
 @media (max-width: $bp-mobile) {
   .bento { grid-template-columns: 1fr; }

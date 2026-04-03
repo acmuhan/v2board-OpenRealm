@@ -145,7 +145,7 @@ const priceFields = [
 <template>
   <div class="admin-plans">
     <!-- Top Bar -->
-    <div class="top-bar stagger-1">
+    <div class="page-header stagger-1">
       <h1 class="page-title">套餐管理</h1>
       <button class="btn-gradient" @click="openEdit()">添加套餐</button>
     </div>
@@ -371,7 +371,7 @@ const priceFields = [
 }
 
 // ── Top Bar ──
-.top-bar {
+.page-header {
   display: flex;
   align-items: center;
   justify-content: space-between;

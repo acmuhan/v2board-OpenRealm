@@ -260,7 +260,7 @@ function toggleActions(id: number) {
 <template>
   <div class="admin-users" @click="showActions = null">
     <!-- Top Bar -->
-    <div class="top-bar stagger-1">
+    <div class="page-header stagger-1">
       <div class="bar-left">
         <input v-model="search" class="or-input search-input" placeholder="搜索邮箱或ID..." />
         <select v-model="filter" class="or-input filter-select">
@@ -416,7 +416,7 @@ function toggleActions(id: number) {
 }
 
 // ── Top Bar ──
-.top-bar {
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -769,7 +769,7 @@ function toggleActions(id: number) {
 
 // ── Responsive ──
 @media (max-width: $bp-mobile) {
-  .top-bar {
+  .page-header {
     flex-direction: column;
     align-items: stretch;
   }

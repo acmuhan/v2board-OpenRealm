@@ -42,7 +42,7 @@ async function submitTicket() {
   <div class="tickets-page">
     <div class="page-header">
       <h1 class="page-title">服务工单</h1>
-      <button class="btn-primary" @click="showNew = !showNew">
+      <button class="btn-gradient" @click="showNew = !showNew">
         {{ showNew ? '取消' : '新建工单' }}
       </button>
     </div>
@@ -67,7 +67,7 @@ async function submitTicket() {
           <label>内容</label>
           <textarea v-model="newMessage" class="or-input" rows="4" placeholder="描述您的问题..."></textarea>
         </div>
-        <button class="btn-primary" @click="submitTicket" :disabled="submitting">
+        <button class="btn-gradient" @click="submitTicket" :disabled="submitting">
           {{ submitting ? '提交中...' : '提交工单' }}
         </button>
       </div>

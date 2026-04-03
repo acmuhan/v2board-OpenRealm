@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { adminTicketApi } from '../../api/admin'
+import { useToastStore } from '../../stores/toast'
+
+const toast = useToastStore()
 
 /* ── Types ── */
 interface TicketMessage {
@@ -47,8 +50,10 @@ async function loadTickets() {
   try {
     const res: any = await adminTicketApi.fetch()
     tickets.value = res.data || []
-  } catch { tickets.value = [] }
-  finally { loading.value = false }
+  } catch (e: any) {
+    tickets.value = []
+    toast.error(e?.message || '加载工单失败')
+  } finally { loading.value = false }
 }
 
 onMounted(() => loadTickets())
@@ -70,14 +75,22 @@ async function sendReply(ticket: Ticket) {
   replying.value = true
   try {
     await adminTicketApi.reply({ id: ticket.id, message: replyText.value })
-  } catch { /* ignore */ }
+    toast.success('回复已发送')
+  } catch (e: any) {
+    toast.error(e?.message || '回复失败')
+  }
   replyText.value = ''
   replying.value = false
   await loadTickets()
 }
 
 async function closeTicket(ticket: Ticket) {
-  try { await adminTicketApi.close({ id: ticket.id }) } catch { /* ignore */ }
+  try {
+    await adminTicketApi.close({ id: ticket.id })
+    toast.success('工单已关闭')
+  } catch (e: any) {
+    toast.error(e?.message || '操作失败')
+  }
   await loadTickets()
 }
 
@@ -172,7 +185,7 @@ function formatDate(ts: number) {
                       placeholder="Type your reply..."
                     ></textarea>
                     <button
-                      class="btn-primary btn-sm"
+                      class="btn-gradient btn-sm"
                       :disabled="replying || !replyText.trim()"
                       @click="sendReply(t)"
                     >{{ replying ? 'Sending...' : 'Send Reply' }}</button>
@@ -198,7 +211,7 @@ function formatDate(ts: number) {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: $gap-lg;
 }
-.page-title { font-size: 22px; font-weight: 700; }
+.page-title { font-size: 24px; font-weight: 700; }
 .ticket-count { font-size: 13px; color: var(--text-3); }
 
 /* Filter Tabs */

@@ -69,6 +69,7 @@ export const useUserStore = defineStore('user', () => {
   function logout() {
     localStorage.removeItem('or_token')
     localStorage.removeItem('or_is_admin')
+    localStorage.removeItem('or_admin_path')
     isAdmin.value = false
     info.value = null
     stat.value = null

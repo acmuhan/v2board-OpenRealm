@@ -113,7 +113,20 @@ const planGradients = [
       <p class="page-desc">{{ t('shop.selectPayment') }}</p>
     </div>
 
-    <div v-if="loading" class="loading-text">{{ t('common.loading') }}</div>
+    <div v-if="loading" class="skeleton-plan-grid">
+      <div v-for="n in 3" :key="n" class="skeleton-plan-card">
+        <div class="skel-plan-header">
+          <div class="skel-line skel-title"></div>
+          <div class="skel-line skel-price"></div>
+        </div>
+        <div class="skel-line skel-desc"></div>
+        <div class="skel-line skel-desc-sm"></div>
+        <div class="skel-features">
+          <div class="skel-line skel-feat"></div>
+          <div class="skel-line skel-feat"></div>
+        </div>
+      </div>
+    </div>
 
     <div v-else class="plan-grid">
       <div
@@ -242,7 +255,40 @@ const planGradients = [
 
 .page-header { margin-bottom: $gap-lg; h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; } }
 .page-desc { font-size: 14px; color: var(--text-2); margin-top: 4px; }
-.loading-text { color: var(--text-3); }
+
+// Skeleton
+.skeleton-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
+  gap: $gap-md;
+  margin-bottom: $gap-xl;
+}
+.skeleton-plan-card {
+  padding: $gap-lg;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: $card-radius;
+}
+.skel-plan-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: $gap-md;
+  gap: $gap-md;
+}
+.skel-line {
+  height: 14px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+.skel-title { width: 50%; height: 18px; }
+.skel-price { width: 25%; height: 22px; }
+.skel-desc { width: 90%; margin-bottom: $gap-sm; }
+.skel-desc-sm { width: 70%; margin-bottom: $gap-md; }
+.skel-features { display: flex; flex-direction: column; gap: $gap-sm; }
+.skel-feat { width: 60%; }
+@keyframes shimmer { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
 
 .plan-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));

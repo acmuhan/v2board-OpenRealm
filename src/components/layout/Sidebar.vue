@@ -17,6 +17,9 @@ const isOpen = ref(false)
 const orConfig = (window as any).__OR_CONFIG__ || {}
 const siteTitle = orConfig.title || 'OpenRealm'
 
+const darkThemes = computed(() => themes.filter(th => !th.light))
+const lightThemes = computed(() => themes.filter(th => th.light))
+
 const navGroups = computed(() => [
   { label: t('nav.groupOverview'), items: [
     { path: '/', icon: 'dashboard', text: t('nav.dashboard') },
@@ -92,19 +95,35 @@ function navigate(path: string) { isOpen.value = false; router.push(path) }
     <div class="theme-section">
       <button class="theme-toggle" @click="showThemes = !showThemes">
         <div class="theme-dots">
-          <span class="td" v-for="t in themes.slice(0, 4)" :key="t.id" :style="{ background: t.colors[0] }"></span>
+          <span class="td" v-for="th in themes.slice(0, 4)" :key="th.id" :style="{ background: th.colors[0] }"></span>
         </div>
-        <span>{{ t('nav.theme') }}</span>
+        <span class="theme-toggle-label">{{ t('nav.theme') }}</span>
+        <span class="theme-current-badge">{{ themes.find(th => th.id === themeStore.current)?.name || '深蓝' }}</span>
+        <svg class="theme-chevron" :class="{ open: showThemes }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6 9l6 6 6-6"/>
+        </svg>
       </button>
       <transition name="fade-slide">
         <div v-if="showThemes" class="theme-picker">
+          <!-- Dark themes -->
+          <div class="theme-group-label">暗色</div>
           <button
-            v-for="t in themes" :key="t.id"
-            :class="['theme-opt', { active: themeStore.current === t.id }]"
-            @click="themeStore.setTheme(t.id)"
+            v-for="th in darkThemes" :key="th.id"
+            :class="['theme-opt', { active: themeStore.current === th.id }]"
+            @click="themeStore.setTheme(th.id)"
           >
-            <div class="theme-preview" :style="{ background: `linear-gradient(135deg, ${t.colors[0]}, ${t.colors[1]})` }"></div>
-            <span>{{ t.name }}</span>
+            <div class="theme-preview" :style="{ background: `linear-gradient(135deg, ${th.colors[0]}, ${th.colors[1]})` }"></div>
+            <span>{{ th.name }}</span>
+          </button>
+          <!-- Light themes -->
+          <div class="theme-group-label light-label">浅色</div>
+          <button
+            v-for="th in lightThemes" :key="th.id"
+            :class="['theme-opt light-opt', { active: themeStore.current === th.id }]"
+            @click="themeStore.setTheme(th.id)"
+          >
+            <div class="theme-preview light-preview" :style="{ background: `linear-gradient(135deg, ${th.colors[0]}, ${th.colors[1]})` }"></div>
+            <span>{{ th.name }}</span>
           </button>
         </div>
       </transition>
@@ -126,9 +145,34 @@ function navigate(path: string) { isOpen.value = false; router.push(path) }
         <div class="user-status"></div>
         <span class="user-name">{{ userStore.info?.email?.split('@')[0] || 'User' }}</span>
       </div>
-      <button class="logout-btn" @click="handleLogout">
-        <SvgIcon name="logout" :size="15" />
-      </button>
+      <div class="footer-actions">
+        <!-- Light/Dark mode quick toggle -->
+        <button
+          class="icon-btn"
+          :title="themeStore.isLight ? '切换暗色' : '切换浅色'"
+          @click="themeStore.toggleLight()"
+        >
+          <!-- Sun icon when dark mode (click to go light) -->
+          <svg v-if="!themeStore.isLight" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/>
+            <line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+          <!-- Moon icon when light mode (click to go dark) -->
+          <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+          </svg>
+        </button>
+        <button class="icon-btn logout-btn" @click="handleLogout" title="退出登录">
+          <SvgIcon name="logout" :size="15" />
+        </button>
+      </div>
     </div>
   </aside>
 </template>
@@ -189,7 +233,7 @@ function navigate(path: string) { isOpen.value = false; router.push(path) }
 
   &:hover {
     color: var(--text-1);
-    background: rgba(255,255,255,0.03);
+    background: var(--bg-hover);
   }
 
   &.active {
@@ -216,12 +260,24 @@ function navigate(path: string) { isOpen.value = false; router.push(path) }
   padding: 0 4px; margin-bottom: $gap-md;
 }
 .theme-toggle {
-  display: flex; align-items: center; gap: $gap-sm;
-  width: 100%; padding: 8px;
+  display: flex; align-items: center; gap: 6px;
+  width: 100%; padding: 8px 10px;
   background: var(--bg-2); border-radius: 8px;
   color: var(--text-2); font-size: 12px;
   transition: background 0.15s;
   &:hover { background: var(--bg-card-hover); }
+}
+.theme-toggle-label { flex: 1; text-align: left; }
+.theme-current-badge {
+  font-size: 10px; font-weight: 600;
+  color: var(--brand-light);
+  background: rgba(var(--brand-rgb), 0.12);
+  padding: 2px 6px; border-radius: 4px;
+}
+.theme-chevron {
+  color: var(--text-3);
+  transition: transform 0.2s;
+  &.open { transform: rotate(180deg); }
 }
 .theme-dots {
   display: flex; gap: 3px;
@@ -236,10 +292,26 @@ function navigate(path: string) { isOpen.value = false; router.push(path) }
   grid-template-columns: repeat(3, 1fr);
   gap: 4px;
   margin-top: 6px;
-  padding: 6px;
+  padding: 8px;
   background: var(--bg-2);
   border-radius: 10px;
   border: 1px solid var(--border);
+  max-height: 300px;
+  overflow-y: auto;
+}
+.theme-group-label {
+  grid-column: 1 / -1;
+  font-size: 9px; font-weight: 700;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 4px 2px 2px;
+  &:not(:first-child) {
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+    padding-top: 8px;
+  }
+  &.light-label { color: var(--brand-light); }
 }
 .theme-opt {
   display: flex; flex-direction: column;
@@ -250,7 +322,7 @@ function navigate(path: string) { isOpen.value = false; router.push(path) }
   color: var(--text-3);
   font-size: 10px;
   transition: all 0.15s;
-  &:hover { background: rgba(255,255,255,0.03); color: var(--text-1); }
+  &:hover { background: var(--bg-hover); color: var(--text-1); }
   &.active {
     background: rgba(var(--brand-rgb), 0.12);
     color: var(--brand-light);
@@ -258,6 +330,9 @@ function navigate(path: string) { isOpen.value = false; router.push(path) }
 }
 .theme-preview {
   width: 24px; height: 24px; border-radius: 6px;
+}
+.light-preview {
+  border: 1.5px solid var(--border);
 }
 
 // Admin link
@@ -284,20 +359,29 @@ function navigate(path: string) { isOpen.value = false; router.push(path) }
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 8px 0; border-top: 1px solid var(--border);
 }
-.user-row { display: flex; align-items: center; gap: 8px; }
+.user-row { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
 .user-status {
-  width: 7px; height: 7px; border-radius: 50%;
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
   background: var(--accent);
   box-shadow: 0 0 6px rgba(var(--accent-rgb), 0.5);
   animation: pulse-ring 2.5s infinite;
 }
-.user-name { font-size: 12px; font-weight: 600; color: var(--text-1); }
-.logout-btn {
+.user-name {
+  font-size: 12px; font-weight: 600; color: var(--text-1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.footer-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+
+.icon-btn {
   width: 28px; height: 28px; border-radius: 6px;
   display: flex; align-items: center; justify-content: center;
   background: transparent; color: var(--text-3);
   transition: all 0.15s;
-  &:hover { background: rgba(239,68,68,0.1); color: var(--danger); }
+  &:hover { background: var(--bg-hover); color: var(--text-2); }
+}
+.logout-btn {
+  &:hover { background: rgba(239,68,68,0.1) !important; color: var(--danger) !important; }
 }
 
 // Sidebar on mobile: hidden by default, slide-in when open
@@ -316,10 +400,10 @@ function navigate(path: string) { isOpen.value = false; router.push(path) }
   }
 }
 
-// Hamburger — visible only on mobile
+// Hamburger — hidden now that mobile uses bottom tab bar
 .hamburger {
   display: none;
-  @media (max-width: $bp-tablet) {
+  @media (max-width: 0px) { // disabled — mobile uses bottom tabbar instead
     display: flex;
     flex-direction: column;
     justify-content: center;

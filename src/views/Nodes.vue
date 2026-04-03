@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { serverApi } from '../api'
+import { useToastStore } from '../stores/toast'
+
+const toast = useToastStore()
 
 const servers = ref<any[]>([])
 const loading = ref(true)
@@ -10,6 +13,8 @@ onMounted(async () => {
   try {
     const res: any = await serverApi.list()
     servers.value = res.data || []
+  } catch (e: any) {
+    toast.error(e?.message || '加载节点失败')
   } finally { loading.value = false }
 })
 
@@ -67,7 +72,19 @@ function rateClass(rate: number) {
       </div>
     </div>
 
-    <div v-if="loading" class="loading-text">加载中...</div>
+    <div v-if="loading" class="skeleton-grid">
+      <div v-for="n in 6" :key="n" class="skeleton-card">
+        <div class="skel-header">
+          <div class="skel-dot"></div>
+          <div class="skel-line skel-name"></div>
+          <div class="skel-badge"></div>
+        </div>
+        <div class="skel-tags">
+          <div class="skel-tag"></div>
+          <div class="skel-tag"></div>
+        </div>
+      </div>
+    </div>
 
     <template v-else>
       <div v-for="([group, list], gi) in groups" :key="group" class="node-group">
@@ -134,7 +151,73 @@ function rateClass(rate: number) {
   &.active { background: rgba(var(--brand-rgb), 0.12); color: var(--brand-light); border-color: rgba(var(--brand-rgb), 0.3); }
 }
 
-.loading-text { color: var(--text-3); }
+// Skeleton
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: $gap-md;
+  margin-bottom: $gap-xl;
+}
+
+.skeleton-card {
+  padding: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: $card-radius;
+}
+
+.skel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: $gap-sm;
+}
+
+.skel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  flex-shrink: 0;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.skel-line {
+  height: 14px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.skel-name { width: 55%; }
+
+.skel-badge {
+  margin-left: auto;
+  width: 32px;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.skel-tags {
+  display: flex;
+  gap: $gap-sm;
+  margin-top: $gap-sm;
+}
+
+.skel-tag {
+  width: 44px;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
 
 .node-group { margin-bottom: $gap-xl; }
 .group-title { font-size: 14px; font-weight: 600; color: var(--text-2); margin-bottom: $gap-md; text-transform: uppercase; letter-spacing: 0.5px; }

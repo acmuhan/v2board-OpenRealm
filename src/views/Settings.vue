@@ -65,7 +65,7 @@ async function changePassword() {
           <label>确认新密码</label>
           <input v-model="confirmPwd" type="password" class="or-input" placeholder="再次输入新密码" />
         </div>
-        <button type="submit" class="btn-primary" :disabled="loading" style="margin-top: 8px">
+        <button type="submit" class="btn-gradient" :disabled="loading" style="margin-top: 8px">
           {{ loading ? '保存中...' : '保存修改' }}
         </button>
       </form>

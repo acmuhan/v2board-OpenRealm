@@ -2,6 +2,15 @@
 @import url('https://fonts.bunny.net/css?family=space-grotesk:400,500,600,700|dm-sans:400,500,600,700|jetbrains-mono:400,500&display=swap');
 
 // ============================================
+// CSS Houdini — animated border property
+// ============================================
+@property --border-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+// ============================================
 // Theme System — CSS Custom Properties
 // ============================================
 :root {
@@ -20,11 +29,14 @@
   --accent: #10b981;
   --accent-rgb: 16, 185, 129;
 
-  // Gradients — key differentiator
-  --grad-brand: linear-gradient(135deg, var(--brand), var(--accent));
-  --grad-card: linear-gradient(160deg, rgba(var(--brand-rgb), 0.10), rgba(var(--accent-rgb), 0.04));
-  --grad-glow: radial-gradient(ellipse at 30% 0%, rgba(var(--brand-rgb), 0.12), transparent 60%);
-  --grad-shine: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.03) 45%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.03) 55%, transparent 60%);
+  // Gradients
+  --grad-brand: linear-gradient(135deg, var(--brand) 0%, var(--accent) 100%);
+  --grad-brand-v: linear-gradient(180deg, var(--brand) 0%, var(--accent) 100%);
+  --grad-card: linear-gradient(160deg, rgba(var(--brand-rgb), 0.12) 0%, rgba(var(--accent-rgb), 0.06) 100%);
+  --grad-mesh: radial-gradient(ellipse at 20% 20%, rgba(var(--brand-rgb), 0.14) 0%, transparent 60%),
+               radial-gradient(ellipse at 80% 80%, rgba(var(--accent-rgb), 0.10) 0%, transparent 55%);
+  --grad-shine: linear-gradient(105deg, transparent 25%, rgba(255,255,255,0.045) 50%, transparent 75%);
+  --grad-number: linear-gradient(135deg, var(--brand-light) 0%, var(--accent) 100%);
 
   // Text
   --text-1: #e2e8f0;
@@ -34,18 +46,26 @@
   // Border
   --border: rgba(255, 255, 255, 0.06);
   --border-active: rgba(var(--brand-rgb), 0.4);
+  --border-glow: rgba(var(--brand-rgb), 0.35);
 
   // Semantic
   --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
 
-  // Effects
-  --glow-brand: 0 0 20px rgba(var(--brand-rgb), 0.15);
-  --glow-accent: 0 0 20px rgba(var(--accent-rgb), 0.15);
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.35);
-  --shadow-lg: 0 8px 24px rgba(0,0,0,0.45);
+  // Utility surfaces
+  --bg-hover: rgba(255, 255, 255, 0.04);
+  --bg-muted: rgba(255, 255, 255, 0.06);
+
+  // Effects — directional depth shadows (not omnidirectional neon)
+  --glow-brand: 0 8px 20px -4px rgba(var(--brand-rgb), 0.22);
+  --glow-brand-xl: 0 12px 40px -8px rgba(var(--brand-rgb), 0.28), 0 4px 14px -2px rgba(var(--brand-rgb), 0.12);
+  --glow-accent: 0 8px 20px -4px rgba(var(--accent-rgb), 0.22);
+  --glow-accent-xl: 0 12px 40px -8px rgba(var(--accent-rgb), 0.28), 0 4px 14px -2px rgba(var(--accent-rgb), 0.12);
+  --shadow-sm: 0 2px 6px rgba(0,0,0,0.32);
+  --shadow-md: 0 4px 18px rgba(0,0,0,0.42);
+  --shadow-lg: 0 8px 36px rgba(0,0,0,0.52);
+  --shadow-colored: 0 8px 28px -4px rgba(var(--brand-rgb), 0.28);
 }
 
 // === Theme Presets ===
@@ -117,6 +137,79 @@
   --accent: #f97316; --accent-rgb: 249, 115, 22;
   --text-1: #fee2e2; --text-2: #fca5a5; --text-3: #7f1d1d;
 }
+// Light — clean white, blue × teal brand
+[data-theme="light"] {
+  --bg-0: #f0f4f8;
+  --bg-1: #f8fafc;
+  --bg-2: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f1f5f9;
+  --bg-elevated: #e8edf3;
+  --brand: #1d4ed8; --brand-light: #2563eb; --brand-rgb: 29, 78, 216;
+  --accent: #059669; --accent-rgb: 5, 150, 105;
+  --text-1: #0f172a; --text-2: #334155; --text-3: #94a3b8;
+  --border: rgba(15, 23, 42, 0.09);
+  --border-active: rgba(29, 78, 216, 0.35);
+  --border-glow: rgba(29, 78, 216, 0.25);
+  --glow-brand: 0 0 20px rgba(29, 78, 216, 0.12);
+  --glow-brand-xl: 0 0 40px rgba(29, 78, 216, 0.16), 0 0 80px rgba(29, 78, 216, 0.06);
+  --glow-accent: 0 0 20px rgba(5, 150, 105, 0.12);
+  --glow-accent-xl: 0 0 40px rgba(5, 150, 105, 0.16), 0 0 80px rgba(5, 150, 105, 0.06);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.05);
+  --shadow-colored: 0 4px 16px -4px rgba(29, 78, 216, 0.18);
+  --grad-card: linear-gradient(160deg, rgba(29, 78, 216, 0.05) 0%, rgba(5, 150, 105, 0.03) 100%);
+  --grad-mesh: radial-gradient(ellipse at 20% 20%, rgba(29, 78, 216, 0.07) 0%, transparent 60%),
+               radial-gradient(ellipse at 80% 80%, rgba(5, 150, 105, 0.05) 0%, transparent 55%);
+  --grad-shine: linear-gradient(105deg, transparent 25%, rgba(255,255,255,0.7) 50%, transparent 75%);
+  --grad-number: linear-gradient(135deg, #1d4ed8 0%, #059669 100%);
+  --bg-hover: rgba(15, 23, 42, 0.04);
+  --bg-muted: rgba(15, 23, 42, 0.06);
+}
+
+// Light Warm — warm ivory, amber × orange brand
+[data-theme="light-warm"] {
+  --bg-0: #faf7f2;
+  --bg-1: #fffef9;
+  --bg-2: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #fef9ef;
+  --bg-elevated: #f5ece0;
+  --brand: #c2410c; --brand-light: #ea580c; --brand-rgb: 194, 65, 12;
+  --accent: #b45309; --accent-rgb: 180, 83, 9;
+  --text-1: #1c1917; --text-2: #44403c; --text-3: #a8a29e;
+  --border: rgba(28, 25, 23, 0.08);
+  --border-active: rgba(194, 65, 12, 0.35);
+  --border-glow: rgba(194, 65, 12, 0.25);
+  --glow-brand: 0 0 20px rgba(194, 65, 12, 0.12);
+  --glow-brand-xl: 0 0 40px rgba(194, 65, 12, 0.18), 0 0 80px rgba(194, 65, 12, 0.06);
+  --glow-accent: 0 0 20px rgba(180, 83, 9, 0.12);
+  --glow-accent-xl: 0 0 40px rgba(180, 83, 9, 0.16), 0 0 80px rgba(180, 83, 9, 0.06);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.09), 0 4px 8px rgba(0,0,0,0.05);
+  --shadow-colored: 0 4px 16px -4px rgba(194, 65, 12, 0.18);
+  --grad-card: linear-gradient(160deg, rgba(194, 65, 12, 0.05) 0%, rgba(180, 83, 9, 0.03) 100%);
+  --grad-mesh: radial-gradient(ellipse at 20% 20%, rgba(194, 65, 12, 0.07) 0%, transparent 60%),
+               radial-gradient(ellipse at 80% 80%, rgba(180, 83, 9, 0.05) 0%, transparent 55%);
+  --grad-shine: linear-gradient(105deg, transparent 25%, rgba(255,255,255,0.65) 50%, transparent 75%);
+  --grad-number: linear-gradient(135deg, #c2410c 0%, #b45309 100%);
+  --bg-hover: rgba(28, 25, 23, 0.04);
+  --bg-muted: rgba(28, 25, 23, 0.06);
+}
+
+// USDT — Tether green × gold, crypto wallet aesthetic
+[data-theme="usdt"] {
+  --bg-0: #050a08; --bg-1: #081510; --bg-2: #0c1d16; --bg-card: #0c1d16; --bg-card-hover: #122818; --bg-elevated: #163222;
+  --brand: #26a17b; --brand-light: #2fb88f; --brand-rgb: 38, 161, 123;
+  --accent: #f0b90b; --accent-rgb: 240, 185, 11;
+  --text-1: #e8f9f3; --text-2: #78c9a8; --text-3: #1f5c40;
+  --border: rgba(38, 161, 123, 0.10);
+  --border-active: rgba(38, 161, 123, 0.40);
+  --glow-brand: 0 0 28px rgba(38, 161, 123, 0.28);
+  --glow-brand-xl: 0 0 56px rgba(38, 161, 123, 0.36), 0 0 120px rgba(38, 161, 123, 0.12);
+}
 
 // ============================================
 // Global Reset
@@ -125,7 +218,6 @@
 html {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
-  // Smooth theme transitions
   transition: background-color 0.3s ease;
 }
 
@@ -143,7 +235,7 @@ h1, h2, h3, h4 {
   line-height: 1.2;
 }
 
-// Theme-switch fade: applied to key containers
+// Theme-switch fade
 .sidebar, .admin-sidebar, .admin-layout, .app-layout, body {
   transition: background-color 0.3s ease, border-color 0.3s ease;
 }
@@ -156,15 +248,13 @@ input, textarea, select { font-family: inherit; outline: none; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--text-3); border-radius: 3px; }
 
-// Table scroll hint — fades right edge on mobile to indicate horizontal scroll
+// Table scroll hint
 .table-wrap {
   position: relative;
   &::after {
     content: '';
     position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
+    top: 0; right: 0; bottom: 0;
     width: 32px;
     background: linear-gradient(to right, transparent, var(--bg-card));
     pointer-events: none;
@@ -174,7 +264,7 @@ input, textarea, select { font-family: inherit; outline: none; }
 }
 
 // ============================================
-// Animated Card
+// Card System
 // ============================================
 .card {
   background: var(--bg-card);
@@ -183,40 +273,25 @@ input, textarea, select { font-family: inherit; outline: none; }
   box-shadow: var(--shadow-sm);
   position: relative;
   overflow: hidden;
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 0.25s,
-              box-shadow 0.25s;
-
-  // Gradient shimmer overlay
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: var(--grad-shine);
-    background-size: 200% 100%;
-    opacity: 0;
-    transition: opacity 0.4s;
-    pointer-events: none;
-    z-index: 1;
-  }
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+              border-color 0.22s ease,
+              box-shadow 0.22s ease;
 
   &:hover {
-    border-color: rgba(var(--brand-rgb), 0.15);
-    box-shadow: var(--shadow-md), var(--glow-brand);
+    border-color: rgba(var(--brand-rgb), 0.22);
+    box-shadow: var(--shadow-md), 0 8px 24px -6px rgba(var(--brand-rgb), 0.12);
     transform: translateY(-2px);
-    &::before {
-      opacity: 1;
-      animation: shimmer 1.5s ease forwards;
-    }
   }
 }
 
 .glass-card { @extend .card; }
 
-// Gradient accent card
+// Gradient accent card — mesh overlay
 .card-accent {
   @extend .card;
   background: var(--grad-card);
+
+  // Top gradient line reveal on hover
   &::after {
     content: '';
     position: absolute;
@@ -224,12 +299,13 @@ input, textarea, select { font-family: inherit; outline: none; }
     height: 2px;
     background: var(--grad-brand);
     opacity: 0;
-    transition: opacity 0.3s;
+    transition: opacity 0.3s ease;
+    z-index: 1;
   }
   &:hover::after { opacity: 1; }
 }
 
-// Glow top card
+// Glow-top card
 .card-glow {
   @extend .card;
   &::after {
@@ -238,13 +314,79 @@ input, textarea, select { font-family: inherit; outline: none; }
     top: -1px; left: 20%; right: 20%;
     height: 1px;
     background: var(--grad-brand);
-    filter: blur(4px);
+    filter: blur(5px);
+    z-index: 1;
   }
 }
 
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+// Premium card — corner accent marks + permanent top gradient strip
+.card-premium {
+  background: var(--bg-card);
+  border: 1px solid rgba(var(--brand-rgb), 0.22);
+  border-radius: $card-radius;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+              border-color 0.22s ease,
+              box-shadow 0.22s ease;
+
+  // Corner accent marks — appear on hover (engineering bracket style)
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 7px;
+    border-radius: calc(#{$card-radius} - 4px);
+    background:
+      linear-gradient(var(--brand) 0 0) top left    / 14px 1.5px no-repeat,
+      linear-gradient(var(--brand) 0 0) top left    / 1.5px 14px no-repeat,
+      linear-gradient(var(--accent) 0 0) top right  / 14px 1.5px no-repeat,
+      linear-gradient(var(--accent) 0 0) top right  / 1.5px 14px no-repeat,
+      linear-gradient(var(--brand) 0 0) bottom left / 14px 1.5px no-repeat,
+      linear-gradient(var(--brand) 0 0) bottom left / 1.5px 14px no-repeat,
+      linear-gradient(var(--accent) 0 0) bottom right / 14px 1.5px no-repeat,
+      linear-gradient(var(--accent) 0 0) bottom right / 1.5px 14px no-repeat;
+    pointer-events: none;
+    z-index: 4;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+
+  // Permanent top gradient strip — crisp glass shelf edge
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent 5%,
+      rgba(var(--brand-rgb), 0.6) 30%,
+      rgba(var(--accent-rgb), 0.6) 70%,
+      transparent 95%
+    );
+    z-index: 5;
+  }
+
+  // Mesh gradient overlay
+  .card-inner-mesh {
+    position: absolute;
+    inset: 0;
+    background: var(--grad-mesh);
+    border-radius: inherit;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.5;
+  }
+
+  > * { position: relative; z-index: 3; }
+
+  &:hover {
+    border-color: rgba(var(--brand-rgb), 0.38);
+    box-shadow: var(--shadow-lg), 0 12px 36px -8px rgba(var(--brand-rgb), 0.18);
+    transform: translateY(-2px);
+    &::before { opacity: 1; }
+  }
 }
 
 // ============================================
@@ -262,7 +404,10 @@ input, textarea, select { font-family: inherit; outline: none; }
   font-size: 14px;
   font-weight: 600;
   font-family: 'Space Grotesk', sans-serif;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  letter-spacing: 0.1px;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.18s ease,
+              background 0.15s ease;
   position: relative;
   overflow: hidden;
 
@@ -270,16 +415,17 @@ input, textarea, select { font-family: inherit; outline: none; }
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(rgba(255,255,255,0.1), transparent);
+    background: linear-gradient(rgba(255,255,255,0.12), transparent);
     opacity: 0;
-    transition: opacity 0.2s;
+    transition: opacity 0.18s;
   }
   &:hover {
-    transform: translateY(-1px);
+    transform: translateY(-2px);
     box-shadow: var(--glow-brand);
     &::after { opacity: 1; }
   }
-  &:active { transform: translateY(0) scale(0.98); }
+  &:active { transform: translateY(1px); box-shadow: none; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
 }
 
 .btn-gradient {
@@ -300,11 +446,14 @@ input, textarea, select { font-family: inherit; outline: none; }
   border-radius: $card-radius-sm;
   font-size: 14px;
   font-weight: 500;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
   &:hover {
     border-color: var(--border-active);
-    background: rgba(var(--brand-rgb), 0.06);
+    background: rgba(var(--brand-rgb), 0.07);
+    transform: translateY(-1px);
   }
+  &:active { transform: translateY(0) scale(0.98); }
+  &:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
 }
 
 // ============================================
@@ -322,7 +471,7 @@ input, textarea, select { font-family: inherit; outline: none; }
   &::placeholder { color: var(--text-3); }
   &:focus {
     border-color: var(--brand);
-    box-shadow: 0 0 0 3px rgba(var(--brand-rgb), 0.1);
+    box-shadow: 0 0 0 3px rgba(var(--brand-rgb), 0.12);
   }
 }
 
@@ -333,23 +482,38 @@ input, textarea, select { font-family: inherit; outline: none; }
   display: inline-flex;
   align-items: center;
   padding: 3px 8px;
-  border-radius: 4px;
+  border-radius: 5px;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  &.success { background: rgba(var(--accent-rgb), 0.12); color: var(--success); }
-  &.warning { background: rgba(245, 158, 11, 0.12); color: var(--warning); }
-  &.danger  { background: rgba(239, 68, 68, 0.12); color: var(--danger); }
-  &.info    { background: rgba(var(--brand-rgb), 0.12); color: var(--brand); }
+  &.success { background: rgba(var(--accent-rgb), 0.14); color: var(--success); }
+  &.warning { background: rgba(245, 158, 11, 0.14); color: var(--warning); }
+  &.danger  { background: rgba(239, 68, 68, 0.14); color: var(--danger); }
+  &.info    { background: rgba(var(--brand-rgb), 0.14); color: var(--brand-light); }
+  &.muted   { background: var(--bg-muted); color: var(--text-3); }
 }
 
 // ============================================
-// Micro-interactions & Motion
+// Gradient Number (wallet balance style)
+// ============================================
+.gradient-number {
+  background: var(--grad-number);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  animation: countUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+// ============================================
+// Section Label
 // ============================================
 .section-title {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-3);
   text-transform: uppercase;
@@ -357,41 +521,72 @@ input, textarea, select { font-family: inherit; outline: none; }
   margin-bottom: $gap-md;
 }
 
-.fade-slide-enter-active { transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-.fade-slide-leave-active { transition: all 0.2s ease; }
-.fade-slide-enter-from { opacity: 0; transform: translateY(12px); }
-.fade-slide-leave-to { opacity: 0; transform: translateY(-8px); }
+// ============================================
+// Transitions
+// ============================================
+.fade-slide-enter-active { transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1); }
+.fade-slide-leave-active { transition: all 0.16s cubic-bezier(0.55, 0, 1, 0.45); }
+.fade-slide-enter-from { opacity: 0; transform: translateY(10px); }
+.fade-slide-leave-to   { opacity: 0; transform: translateY(-6px); }
 
-// Staggered entrance for lists
+.fade-enter-active { transition: opacity 0.2s ease; }
+.fade-leave-active { transition: opacity 0.14s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+
+// ============================================
+// Stagger Entrance (30–40ms per step — crisp)
+// ============================================
 @for $i from 1 through 12 {
   .stagger-#{$i} {
-    animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) #{$i * 0.06}s both;
+    animation: fadeUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) #{$i * 0.04}s both;
   }
 }
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-// Pulse
+// ============================================
+// Core Keyframes
+// ============================================
 @keyframes pulse-ring {
-  0% { transform: scale(0.8); opacity: 0.8; }
-  100% { transform: scale(1.4); opacity: 0; }
+  0%   { transform: scale(0.8); opacity: 0.8; }
+  100% { transform: scale(1.5); opacity: 0; }
 }
 
-// Float
 @keyframes float {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+  50%       { transform: translateY(-6px); }
 }
 
-// Counter animation
 @keyframes countUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-// Grid noise
+@keyframes breathe {
+  0%, 100% { transform: scale(1);    opacity: 0.85; }
+  50%       { transform: scale(1.14); opacity: 1; }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 1; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+// Shimmer (skeleton loader)
+@keyframes shimmer {
+  0%, 100% { opacity: 0.45; }
+  50%       { opacity: 0.9; }
+}
+
+// ============================================
+// Noise / Grid Texture
+// ============================================
 .noise-bg {
   position: relative;
   &::before {
@@ -402,5 +597,19 @@ input, textarea, select { font-family: inherit; outline: none; }
     background-size: 40px 40px;
     pointer-events: none;
     z-index: 0;
+  }
+}
+
+// ============================================
+// Reduced Motion
+// ============================================
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+  .card-premium::before { animation: none !important; }
+  @for $i from 1 through 12 {
+    .stagger-#{$i} { animation: none !important; opacity: 1; }
   }
 }

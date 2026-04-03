@@ -2,8 +2,10 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminCouponApi } from '../../api/admin'
+import { useToastStore } from '../../stores/toast'
 
 const { t } = useI18n()
+const toast = useToastStore()
 
 /* ── Types ── */
 interface Coupon {
@@ -46,8 +48,10 @@ async function loadCoupons() {
   try {
     const res: any = await adminCouponApi.fetch()
     coupons.value = res.data || []
-  } catch { coupons.value = [] }
-  finally { loading.value = false }
+  } catch (e: any) {
+    coupons.value = []
+    toast.error(e?.message || '加载优惠券失败')
+  } finally { loading.value = false }
 }
 
 onMounted(() => loadCoupons())
@@ -95,7 +99,12 @@ async function submitGenerate() {
     generate_count: form.value.generate_count,
   }
 
-  try { await adminCouponApi.generate(payload) } catch { /* ignore */ }
+  try {
+    await adminCouponApi.generate(payload)
+    toast.success('优惠券已生成')
+  } catch (e: any) {
+    toast.error(e?.message || '生成优惠券失败')
+  }
   showModal.value = false
   await loadCoupons()
 }
@@ -106,7 +115,12 @@ async function toggleShow(c: Coupon) {
 }
 
 async function deleteCoupon(id: number) {
-  try { await adminCouponApi.drop({ id }) } catch { /* ignore */ }
+  try {
+    await adminCouponApi.drop({ id })
+    toast.success('优惠券已删除')
+  } catch (e: any) {
+    toast.error(e?.message || '删除失败')
+  }
   confirmDeleteId.value = null
   await loadCoupons()
 }
@@ -124,7 +138,7 @@ function formatValue(c: Coupon) {
   <div class="admin-coupons">
     <div class="page-header stagger-1">
       <h1 class="page-title">{{ t('admin.coupons.title') }}</h1>
-      <button class="btn-primary" @click="openGenerate">+ {{ t('admin.coupons.generate') }}</button>
+      <button class="btn-gradient" @click="openGenerate">+ {{ t('admin.coupons.generate') }}</button>
     </div>
 
     <!-- Table -->
@@ -259,7 +273,7 @@ function formatValue(c: Coupon) {
             <div class="modal-actions">
               <button class="btn-ghost" @click="showModal = false">{{ t('common.cancel') }}</button>
               <button
-                class="btn-primary"
+                class="btn-gradient"
                 :disabled="!form.code.trim()"
                 @click="submitGenerate"
               >{{ t('admin.coupons.generate') }} {{ form.generate_count > 1 ? `(${form.generate_count})` : '' }}</button>
@@ -280,7 +294,7 @@ function formatValue(c: Coupon) {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: $gap-lg;
 }
-.page-title { font-size: 22px; font-weight: 700; }
+.page-title { font-size: 24px; font-weight: 700; }
 
 /* Table */
 .table-wrap {

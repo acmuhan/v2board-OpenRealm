@@ -3,6 +3,9 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { orderApi } from '../api'
 import { useCheckout } from '../composables/useCheckout'
+import { useToastStore } from '../stores/toast'
+
+const toast = useToastStore()
 
 const { t } = useI18n()
 const { showPayModal, payMethods, payLoading, methodLoading, openPayment, confirmPay, cancelAndClose } = useCheckout()
@@ -22,6 +25,8 @@ async function loadOrders() {
   try {
     const res: any = await orderApi.list()
     orders.value = res.data || []
+  } catch (e: any) {
+    toast.error(e?.message || '加载订单失败')
   } finally { loading.value = false }
 }
 
@@ -32,7 +37,12 @@ function formatDate(ts: number) {
 }
 
 async function cancelOrder(tradeNo: string) {
-  await orderApi.cancel(tradeNo)
+  try {
+    await orderApi.cancel(tradeNo)
+    toast.success('订单已取消')
+  } catch (e: any) {
+    toast.error(e?.message || '取消失败')
+  }
   await loadOrders()
 }
 
@@ -50,7 +60,18 @@ async function handleConfirmPay(methodId: number) {
   <div class="orders-page">
     <h1 class="page-title">{{ t('orders.title') }}</h1>
 
-    <div v-if="loading" class="loading-text">{{ t('common.loading') }}</div>
+    <div v-if="loading" class="skeleton-list">
+      <div v-for="n in 3" :key="n" class="skeleton-item">
+        <div class="skel-row">
+          <div class="skel-line skel-plan"></div>
+          <div class="skel-tag-ph"></div>
+        </div>
+        <div class="skel-row skel-detail">
+          <div class="skel-line skel-detail-a"></div>
+          <div class="skel-line skel-detail-b"></div>
+        </div>
+      </div>
+    </div>
 
     <div v-else-if="orders.length" class="orders-list">
       <div v-for="order in orders" :key="order.trade_no" class="order-item glass-card">
@@ -68,7 +89,7 @@ async function handleConfirmPay(methodId: number) {
           <span>{{ t('orders.createdAt') }}: {{ formatDate(order.created_at) }}</span>
         </div>
         <div v-if="order.status === 0" class="order-actions">
-          <button class="btn-primary" style="padding: 8px 20px; font-size: 13px;" @click="handlePayNow(order.trade_no)">
+          <button class="btn-gradient" style="padding: 8px 20px; font-size: 13px;" @click="handlePayNow(order.trade_no)">
             {{ t('orders.payNow') }}
           </button>
           <button class="btn-ghost" style="padding: 8px 20px; font-size: 13px;" @click="cancelOrder(order.trade_no)">
@@ -126,7 +147,28 @@ async function handleConfirmPay(methodId: number) {
 <style lang="scss" scoped>
 @use '../assets/styles/variables' as *;
 .page-title { font-size: 22px; font-weight: 700; margin-bottom: $gap-lg; }
-.loading-text { color: var(--text-3); }
+
+// Skeleton
+.skeleton-list { display: flex; flex-direction: column; gap: $gap-md; }
+.skeleton-item {
+  padding: $gap-lg;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: $card-radius;
+}
+.skel-row { display: flex; align-items: center; gap: $gap-md; margin-bottom: $gap-sm; }
+.skel-line {
+  height: 14px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+.skel-plan { width: 40%; }
+.skel-tag-ph { margin-left: auto; width: 60px; height: 22px; border-radius: 6px; background: var(--bg-elevated); animation: shimmer 1.4s ease-in-out infinite; }
+.skel-detail { gap: $gap-xl; margin-top: $gap-xs; }
+.skel-detail-a { width: 130px; }
+.skel-detail-b { width: 160px; }
+@keyframes shimmer { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
 .orders-list { display: flex; flex-direction: column; gap: $gap-md; }
 .order-item { padding: $gap-lg; }
 .order-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: $gap-sm; }

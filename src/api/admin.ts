@@ -1,7 +1,15 @@
 import http from './index'
 
-// Dynamic admin path — stored in localStorage for anti-detection
-const adminPath = () => localStorage.getItem('or_admin_path') || 'admin'
+// Admin path resolution (three-tier fallback):
+// 1. localStorage 'or_admin_path'  — set at login or from __OR_CONFIG__
+// 2. window.__OR_CONFIG__.adminPath — injected by v2board blade template
+// 3. VITE_ADMIN_PATH build-time env var (required for Cloudflare/static deployments)
+// 4. 'admin' last-resort default
+const adminPath = () =>
+  localStorage.getItem('or_admin_path') ||
+  (window as any).__OR_CONFIG__?.adminPath ||
+  import.meta.env.VITE_ADMIN_PATH ||
+  'admin'
 const ap = () => `/${adminPath()}`
 
 // ──────────────────────────────────────────────

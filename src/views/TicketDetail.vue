@@ -2,6 +2,9 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ticketApi } from '../api'
+import { useToastStore } from '../stores/toast'
+
+const toast = useToastStore()
 
 const route = useRoute()
 const ticket = ref<any>(null)
@@ -15,6 +18,8 @@ onMounted(async () => {
     const res: any = await ticketApi.detail(Number(route.params.id))
     ticket.value = res.data?.ticket || res.data
     messages.value = res.data?.message || []
+  } catch (e: any) {
+    toast.error(e?.message || '加载工单失败')
   } finally { loading.value = false }
 })
 
@@ -26,6 +31,8 @@ async function sendReply() {
     reply.value = ''
     const res: any = await ticketApi.detail(Number(route.params.id))
     messages.value = res.data?.message || []
+  } catch (e: any) {
+    toast.error(e?.message || '发送失败')
   } finally { sending.value = false }
 }
 
@@ -57,7 +64,7 @@ async function closeTicket() {
 
       <div v-if="ticket.status !== 2" class="reply-box glass-card">
         <textarea v-model="reply" class="or-input" rows="3" placeholder="输入回复内容..."></textarea>
-        <button class="btn-primary" @click="sendReply" :disabled="sending" style="margin-top:8px">
+        <button class="btn-gradient" @click="sendReply" :disabled="sending" style="margin-top:8px">
           {{ sending ? '发送中...' : '发送回复' }}
         </button>
       </div>
