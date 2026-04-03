@@ -9,6 +9,7 @@ const userStore = useUserStore()
 const notices = ref<any[]>([])
 const subLink = ref('')
 const copied = ref(false)
+const copyBubbleVisible = ref(false)
 const activeNotice = ref<any>(null)
 const subRevealed = ref(false)
 const showQR = ref(false)
@@ -88,7 +89,9 @@ function copyLink() {
   if (!subLink.value) return
   navigator.clipboard.writeText(subLink.value)
   copied.value = true
+  copyBubbleVisible.value = true
   setTimeout(() => (copied.value = false), 2000)
+  setTimeout(() => (copyBubbleVisible.value = false), 1500)
 }
 </script>
 
@@ -256,6 +259,7 @@ function copyLink() {
             </div>
           </div>
           <div class="sub-actions">
+            <span v-if="copyBubbleVisible" class="copy-bubble">✓ 已复制</span>
             <button class="btn-ghost copy-btn" @click="copyLink" :disabled="!subLink">
               {{ copied ? '✓ 已复制' : '复制' }}
             </button>
@@ -511,7 +515,13 @@ function copyLink() {
 // Subscribe
 .sub-col { display: flex; flex-direction: column; gap: $gap-sm; }
 .mono-input { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
-.sub-actions { display: flex; gap: 6px; }
+.sub-actions { display: flex; gap: 6px; position: relative; }
+.copy-bubble {
+  position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%) translateY(0);
+  background: var(--brand); color: #fff; font-size: 11px; font-weight: 700;
+  padding: 4px 10px; border-radius: 6px; white-space: nowrap; pointer-events: none;
+  animation: bubble-float 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
 .copy-btn { flex: 1; font-size: 12px; padding: 10px; }
 .qr-btn {
   display: flex; align-items: center; gap: 5px;

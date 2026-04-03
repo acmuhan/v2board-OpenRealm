@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { adminUserApi } from '../../api/admin'
 
 
@@ -30,6 +30,11 @@ const editForm = ref<Record<string, any>>({})
 const loading = ref(false)
 const error = ref('')
 const saving = ref(false)
+const bulkLoading = ref(false)
+
+// ── Bulk Selection ──
+const selectedIds = ref<Set<number>>(new Set())
+const allSelected = computed(() => users.value.length > 0 && users.value.every(u => selectedIds.value.has(u.id)))
 
 const filterOptions = [
   { value: 'all', label: '全部' },
@@ -61,6 +66,7 @@ async function fetchUsers() {
       total.value = users.value.length
     }
     totalPages.value = Math.max(1, Math.ceil(total.value / pageSize))
+    selectedIds.value = new Set()
   } catch (e: any) {
     error.value = e?.response?.data?.message || e?.message || '加载用户列表失败'
     users.value = []
@@ -255,6 +261,40 @@ async function exportCSV() {
 function toggleActions(id: number) {
   showActions.value = showActions.value === id ? null : id
 }
+
+// ── Bulk Operations ──
+function toggleSelect(id: number) {
+  const s = new Set(selectedIds.value)
+  if (s.has(id)) s.delete(id)
+  else s.add(id)
+  selectedIds.value = s
+}
+
+function toggleSelectAll() {
+  if (allSelected.value) selectedIds.value = new Set()
+  else selectedIds.value = new Set(users.value.map(u => u.id))
+}
+
+async function bulkBan() {
+  bulkLoading.value = true
+  for (const id of selectedIds.value) {
+    try { await adminUserApi.ban({ id }) } catch { /* ignore */ }
+  }
+  selectedIds.value = new Set()
+  bulkLoading.value = false
+  await fetchUsers()
+}
+
+async function bulkDelete() {
+  if (!confirm(`确认删除选中的 ${selectedIds.value.size} 个用户？`)) return
+  bulkLoading.value = true
+  for (const id of selectedIds.value) {
+    try { await adminUserApi.delUser({ id }) } catch { /* ignore */ }
+  }
+  selectedIds.value = new Set()
+  bulkLoading.value = false
+  await fetchUsers()
+}
 </script>
 
 <template>
@@ -281,6 +321,16 @@ function toggleActions(id: number) {
       <button class="error-dismiss" @click="error = ''">×</button>
     </div>
 
+    <!-- Bulk Action Bar -->
+    <div v-if="selectedIds.size > 0" class="bulk-bar">
+      <span class="bulk-count">已选 {{ selectedIds.size }} 个用户</span>
+      <div class="bulk-actions">
+        <button class="btn-ghost btn-sm" @click="selectedIds.clear()">取消</button>
+        <button class="btn-ghost btn-sm" :disabled="bulkLoading" @click="bulkBan">批量封禁</button>
+        <button class="btn-ghost btn-sm btn-danger" :disabled="bulkLoading" @click="bulkDelete">批量删除</button>
+      </div>
+    </div>
+
     <!-- Data Table -->
     <div class="table-wrap stagger-2">
       <!-- Loading overlay -->
@@ -292,6 +342,9 @@ function toggleActions(id: number) {
       <table class="data-table">
         <thead>
           <tr>
+            <th class="th-check">
+              <input type="checkbox" :checked="allSelected" @change="toggleSelectAll" class="row-check" />
+            </th>
             <th>ID</th>
             <th>邮箱</th>
             <th>套餐</th>
@@ -304,6 +357,9 @@ function toggleActions(id: number) {
         </thead>
         <tbody>
           <tr v-for="(user, idx) in users" :key="user.id" :class="`stagger-${idx + 3}`">
+            <td class="td-check">
+              <input type="checkbox" :checked="selectedIds.has(user.id)" @change="() => toggleSelect(user.id)" class="row-check" />
+            </td>
             <td class="col-id">{{ user.id }}</td>
             <td class="col-email">{{ user.email }}</td>
             <td>{{ user.plan_name || '--' }}</td>
@@ -332,7 +388,7 @@ function toggleActions(id: number) {
             </td>
           </tr>
           <tr v-if="!loading && !users.length">
-            <td colspan="8" class="empty-row">暂无数据</td>
+            <td colspan="9" class="empty-row">暂无数据</td>
           </tr>
         </tbody>
       </table>
@@ -765,6 +821,35 @@ function toggleActions(id: number) {
   gap: $gap-sm;
   padding-top: $gap-sm;
   border-top: 1px solid var(--border);
+}
+
+// ── Bulk Bar ──
+.th-check, .td-check { width: 40px; text-align: center; }
+.row-check { width: 15px; height: 15px; accent-color: var(--brand); cursor: pointer; }
+.bulk-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; margin-bottom: $gap-sm;
+  background: rgba(var(--brand-rgb), 0.08);
+  border: 1px solid rgba(var(--brand-rgb), 0.2);
+  border-radius: 10px;
+  animation: fade-in-down 0.2s ease;
+}
+.bulk-count { font-size: 13px; font-weight: 600; color: var(--brand-light); }
+.bulk-actions { display: flex; gap: 6px; }
+.btn-danger {
+  color: var(--danger) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  &:hover {
+    background: rgba(239, 68, 68, 0.1) !important;
+  }
+}
+.btn-sm {
+  padding: 5px 12px !important;
+  font-size: 12px !important;
+}
+@keyframes fade-in-down {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 // ── Responsive ──

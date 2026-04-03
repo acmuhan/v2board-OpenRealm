@@ -46,6 +46,21 @@ const isAdmin = computed(() => userStore.isAdmin)
 const isActive = (path: string) => path === '/' ? route.path === '/' : route.path.startsWith(path)
 function handleLogout() { userStore.logout(); router.push('/login') }
 function navigate(path: string) { isOpen.value = false; router.push(path) }
+
+let touchStartX = 0
+let touchStartY = 0
+function onTouchStart(e: TouchEvent) {
+  touchStartX = e.touches[0].clientX
+  touchStartY = e.touches[0].clientY
+}
+function onTouchMove(e: TouchEvent) {
+  const dx = e.touches[0].clientX - touchStartX
+  const dy = e.touches[0].clientY - touchStartY
+  // Only horizontal swipe, left direction (negative dx), not mostly vertical
+  if (dx < -50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+    isOpen.value = false
+  }
+}
 </script>
 
 <template>
@@ -57,7 +72,7 @@ function navigate(path: string) { isOpen.value = false; router.push(path) }
   <!-- Mobile overlay -->
   <div v-if="isOpen" class="sidebar-overlay" @click="isOpen = false"></div>
 
-  <aside :class="['sidebar', { 'sidebar-open': isOpen }]">
+  <aside :class="['sidebar', { 'sidebar-open': isOpen }]" @touchstart="onTouchStart" @touchmove="onTouchMove">
     <!-- Logo -->
     <div class="sidebar-logo" @click="navigate('/')">
       <div class="logo-mark">

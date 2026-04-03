@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminNoticeApi } from '../../api/admin'
 import MarkdownRenderer from '../../components/common/MarkdownRenderer.vue'
@@ -35,6 +35,22 @@ const form = ref({
 
 const notices = ref<Notice[]>([])
 const loading = ref(true)
+const textareaRef = ref<HTMLTextAreaElement | null>(null)
+
+function insertMarkdown(before: string, after = '', placeholder = '') {
+  const ta = textareaRef.value
+  if (!ta) return
+  const start = ta.selectionStart
+  const end = ta.selectionEnd
+  const selected = form.value.content.slice(start, end) || placeholder
+  form.value.content = form.value.content.slice(0, start) + before + selected + after + form.value.content.slice(end)
+  // Restore cursor after insertion
+  nextTick(() => {
+    const newPos = start + before.length + selected.length
+    ta.focus()
+    ta.setSelectionRange(start + before.length, newPos)
+  })
+}
 
 async function loadNotices() {
   loading.value = true
@@ -181,12 +197,40 @@ function formatDate(ts: number) {
                   @click="showPreview = !showPreview"
                 >{{ t('admin.notices.markdownPreview') }}</button>
               </div>
+              <div v-if="!showPreview" class="md-toolbar">
+                <button type="button" class="tb-btn" title="粗体 (Ctrl+B)" @click="insertMarkdown('**', '**', '粗体文字')">
+                  <strong>B</strong>
+                </button>
+                <button type="button" class="tb-btn" title="斜体 (Ctrl+I)" @click="insertMarkdown('*', '*', '斜体文字')">
+                  <em>I</em>
+                </button>
+                <button type="button" class="tb-btn" title="标题" @click="insertMarkdown('## ', '', '标题')">
+                  H
+                </button>
+                <button type="button" class="tb-btn" title="链接" @click="insertMarkdown('[', '](url)', '链接文字')">
+                  🔗
+                </button>
+                <button type="button" class="tb-btn" title="图片" @click="insertMarkdown('![', '](url)', '图片描述')">
+                  🖼
+                </button>
+                <button type="button" class="tb-btn" title="代码" @click="insertMarkdown('`', '`', '代码')">
+                  &lt;/&gt;
+                </button>
+                <button type="button" class="tb-btn" title="列表" @click="insertMarkdown('\n- ', '', '列表项')">
+                  ≡
+                </button>
+                <div class="tb-divider"></div>
+                <span class="tb-hint">Markdown</span>
+              </div>
               <textarea
                 v-if="!showPreview"
+                ref="textareaRef"
                 v-model="form.content"
-                class="or-input"
+                :class="['or-input', { 'with-toolbar': !showPreview }]"
                 rows="8"
                 :placeholder="t('admin.notices.content') + ' (Markdown supported)'"
+                @keydown.ctrl.b.prevent="insertMarkdown('**', '**', '粗体文字')"
+                @keydown.ctrl.i.prevent="insertMarkdown('*', '*', '斜体文字')"
               ></textarea>
               <div v-else class="md-preview-wrap">
                 <MarkdownRenderer :content="form.content" />
@@ -310,6 +354,24 @@ function formatDate(ts: number) {
   &.active { border-color: var(--accent); color: var(--accent); background: rgba(var(--accent-rgb), 0.08); }
 }
 textarea.or-input { resize: vertical; min-height: 160px; }
+.with-toolbar { border-top: none !important; border-radius: 0 0 8px 8px !important; }
+.md-toolbar {
+  display: flex; align-items: center; gap: 2px;
+  padding: 6px 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border); border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  flex-wrap: wrap;
+}
+.tb-btn {
+  min-width: 28px; height: 28px; padding: 0 6px;
+  border-radius: 5px; border: none; background: transparent;
+  color: var(--text-2); font-size: 13px; cursor: pointer;
+  transition: all 0.12s; display: flex; align-items: center; justify-content: center;
+  &:hover { background: rgba(var(--brand-rgb), 0.1); color: var(--brand-light); }
+}
+.tb-divider { width: 1px; height: 16px; background: var(--border); margin: 0 4px; }
+.tb-hint { font-size: 10px; color: var(--text-3); margin-left: auto; font-family: 'Space Grotesk', sans-serif; }
 .md-preview-wrap {
   min-height: 160px; max-height: 400px; overflow-y: auto;
   background: var(--bg-1); border: 1px solid var(--border);

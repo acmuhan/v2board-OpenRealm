@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminStatApi, adminOrderApi } from '../../api/admin'
+import { Chart, registerables } from 'chart.js'
+
+Chart.register(...registerables)
 
 const { t } = useI18n()
 
@@ -20,7 +23,9 @@ const stats = ref<OverrideStats | null>(null)
 
 // ── Revenue chart (31 days) ────────────────
 const revenueData = ref<number[]>([])
-const chartMax = computed(() => Math.max(...revenueData.value, 1))
+const revenueChartRef = ref<HTMLCanvasElement | null>(null)
+let chartInstance: Chart | null = null
+
 const chartDays = computed(() =>
   revenueData.value.map((_, i) => {
     const d = new Date()
@@ -28,6 +33,77 @@ const chartDays = computed(() =>
     return d.getDate().toString()
   })
 )
+
+function buildChart() {
+  if (!revenueChartRef.value || !revenueData.value.length) return
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null }
+
+  // Read CSS vars for theme-aware colors
+  const style = getComputedStyle(document.documentElement)
+  const brandColor = style.getPropertyValue('--brand').trim() || '#6366f1'
+  const borderColor = style.getPropertyValue('--border').trim() || 'rgba(255,255,255,0.08)'
+  const textColor = style.getPropertyValue('--text-3').trim() || '#666'
+
+  chartInstance = new Chart(revenueChartRef.value, {
+    type: 'bar',
+    data: {
+      labels: chartDays.value,
+      datasets: [{
+        label: '收入',
+        data: revenueData.value.map(v => +(v / 100).toFixed(2)),
+        backgroundColor: `${brandColor}55`,
+        borderColor: brandColor,
+        borderWidth: 2,
+        borderRadius: 5,
+        borderSkipped: false,
+        hoverBackgroundColor: `${brandColor}99`,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 600, easing: 'easeOutQuart' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => `¥${(ctx.parsed?.y ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`,
+          },
+          backgroundColor: '#1a1f2e',
+          borderColor: borderColor,
+          borderWidth: 1,
+          titleColor: '#fff',
+          bodyColor: '#aaa',
+          padding: 10,
+          cornerRadius: 8,
+        },
+      },
+      scales: {
+        x: {
+          grid: { color: borderColor, lineWidth: 1 },
+          ticks: { color: textColor, font: { size: 10, family: 'Space Grotesk' }, maxRotation: 0 },
+          border: { color: borderColor },
+        },
+        y: {
+          grid: { color: borderColor, lineWidth: 1 },
+          ticks: {
+            color: textColor,
+            font: { size: 10, family: 'Space Grotesk' },
+            callback: v => `¥${Number(v).toLocaleString()}`,
+          },
+          border: { color: borderColor },
+        },
+      },
+    },
+  })
+}
+
+watch(revenueData, async () => {
+  await nextTick()
+  buildChart()
+})
+
+onUnmounted(() => { chartInstance?.destroy() })
 
 // ── Ranking tables ─────────────────────────
 interface ServerRank {
@@ -255,22 +331,7 @@ onMounted(async () => {
         </div>
       </div>
       <div class="chart-area">
-        <div v-if="revenueData.length" class="chart-bars">
-          <div v-for="(val, i) in revenueData" :key="i" class="bar-col">
-            <div class="bar-track">
-              <div
-                class="bar-fill"
-                :style="{ height: (val / chartMax) * 100 + '%', animationDelay: i * 0.03 + 's' }"
-              >
-                <div class="bar-tooltip">¥{{ formatCNY(val) }}</div>
-              </div>
-            </div>
-            <span v-if="i % 5 === 0 || i === revenueData.length - 1" class="bar-label">
-              {{ chartDays[i] }}
-            </span>
-            <span v-else class="bar-label empty"></span>
-          </div>
-        </div>
+        <canvas v-if="revenueData.length" ref="revenueChartRef" class="revenue-canvas"></canvas>
         <div v-else class="chart-empty">{{ t('admin.dashboard.noData') }}</div>
       </div>
       <div v-if="revenueData.length" class="chart-summary">
@@ -558,7 +619,13 @@ onMounted(async () => {
 }
 
 .chart-area {
-  height: 200px;
+  height: 220px;
+  position: relative;
+}
+
+.revenue-canvas {
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .chart-empty {
@@ -568,94 +635,6 @@ onMounted(async () => {
   justify-content: center;
   color: var(--text-3);
   font-size: 13px;
-}
-
-.chart-bars {
-  display: flex;
-  gap: 4px;
-  height: 100%;
-  align-items: flex-end;
-}
-
-.bar-col {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  height: 100%;
-  min-width: 0;
-}
-
-.bar-track {
-  flex: 1;
-  width: 100%;
-  max-width: 24px;
-  border-radius: 4px 4px 2px 2px;
-  background: rgba(255, 255, 255, 0.02);
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  overflow: hidden;
-  position: relative;
-}
-
-.bar-fill {
-  width: 100%;
-  border-radius: 4px 4px 2px 2px;
-  background: var(--grad-brand);
-  animation: barGrow 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
-  position: relative;
-  min-height: 2px;
-  transition: filter 0.2s;
-
-  &:hover {
-    filter: brightness(1.3);
-
-    .bar-tooltip {
-      opacity: 1;
-      transform: translateX(-50%) translateY(-4px);
-      pointer-events: auto;
-    }
-  }
-}
-
-.bar-tooltip {
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%) translateY(0);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 8px;
-  font-size: 11px;
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 600;
-  color: var(--text-1);
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  z-index: 10;
-  box-shadow: var(--shadow-md);
-}
-
-@keyframes barGrow {
-  from {
-    height: 0 !important;
-  }
-}
-
-.bar-label {
-  font-size: 9px;
-  color: var(--text-3);
-  font-weight: 600;
-  font-family: 'Space Grotesk', sans-serif;
-
-  &.empty {
-    visibility: hidden;
-  }
 }
 
 .chart-summary {
@@ -890,7 +869,7 @@ onMounted(async () => {
   }
 
   .chart-area {
-    height: 140px;
+    height: 160px;
   }
 
   .chart-summary {

@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '../stores/user'
+import { useLocaleStore } from '../stores/locale'
 import { userApi } from '../api'
 
 const userStore = useUserStore()
+const localeStore = useLocaleStore()
 const oldPwd = ref('')
 const newPwd = ref('')
 const confirmPwd = ref('')
@@ -23,6 +25,43 @@ async function changePassword() {
     msg.value = e?.message || '修改失败'; msgType.value = 'error'
   } finally { loading.value = false }
 }
+
+// Custom hue
+const savedHue = parseInt(localStorage.getItem('or_custom_hue') || '-1')
+const customHue = ref(savedHue >= 0 ? savedHue : 220)
+const previewColor = computed(() => `hsl(${customHue.value}, 80%, 52%)`)
+const colorPresets = [
+  { hue: 220, name: '蓝色' }, { hue: 160, name: '绿色' }, { hue: 280, name: '紫色' },
+  { hue: 20,  name: '橙色' }, { hue: 0,   name: '红色' }, { hue: 190, name: '青色' },
+]
+function applyCustomHue() {
+  const h = customHue.value
+  const brand = `hsl(${h}, 80%, 52%)`
+  const brandLight = `hsl(${h}, 80%, 62%)`
+  const brandRgb = hslToRgb(h, 80, 52)
+  document.documentElement.style.setProperty('--brand', brand)
+  document.documentElement.style.setProperty('--brand-light', brandLight)
+  document.documentElement.style.setProperty('--brand-rgb', brandRgb)
+  localStorage.setItem('or_custom_hue', String(h))
+}
+function resetCustomHue() {
+  document.documentElement.style.removeProperty('--brand')
+  document.documentElement.style.removeProperty('--brand-light')
+  document.documentElement.style.removeProperty('--brand-rgb')
+  localStorage.removeItem('or_custom_hue')
+  customHue.value = 220
+}
+function hslToRgb(h: number, s: number, l: number): string {
+  s /= 100; l /= 100
+  const k = (n: number) => (n + h / 30) % 12
+  const a = s * Math.min(l, 1 - l)
+  const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)))
+  return `${Math.round(f(0)*255)}, ${Math.round(f(8)*255)}, ${Math.round(f(4)*255)}`
+}
+// Apply saved hue on mount
+onMounted(() => {
+  if (savedHue >= 0) applyCustomHue()
+})
 </script>
 
 <template>
@@ -70,6 +109,33 @@ async function changePassword() {
         </button>
       </form>
     </div>
+
+    <!-- Language Switch (#40) -->
+    <div class="settings-section glass-card">
+      <h3>语言 / Language</h3>
+      <div class="lang-row">
+        <button :class="['lang-btn', { active: localeStore.current === 'zh-CN' }]" @click="localeStore.setLocale('zh-CN')">
+          <span class="lang-flag">🇨🇳</span> 中文
+        </button>
+        <button :class="['lang-btn', { active: localeStore.current === 'en' }]" @click="localeStore.setLocale('en')">
+          <span class="lang-flag">🇺🇸</span> English
+        </button>
+      </div>
+    </div>
+
+    <!-- Brand Color HSL Picker (#30) -->
+    <div class="settings-section glass-card">
+      <h3>自定义品牌色</h3>
+      <div class="color-row">
+        <div class="color-preview" :style="{ background: previewColor }"></div>
+        <input type="range" min="0" max="360" v-model.number="customHue" class="hue-slider" @input="applyCustomHue" />
+        <span class="hue-value">{{ customHue }}°</span>
+      </div>
+      <div class="color-presets">
+        <button v-for="preset in colorPresets" :key="preset.hue" class="preset-dot" :style="{ background: `hsl(${preset.hue}, 80%, 52%)` }" :title="preset.name" @click="customHue = preset.hue; applyCustomHue()"></button>
+      </div>
+      <button class="btn-ghost" style="margin-top:8px; font-size: 12px;" @click="resetCustomHue">恢复默认</button>
+    </div>
   </div>
 </template>
 
@@ -91,4 +157,26 @@ async function changePassword() {
   &.success { background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.3); color: var(--success); }
   &.error { background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.3); color: var(--danger); }
 }
+.lang-row { display: flex; gap: $gap-sm; }
+.lang-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 20px; border-radius: 8px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  color: var(--text-2); font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s;
+  &:hover { border-color: rgba(var(--brand-rgb), 0.3); }
+  &.active { background: rgba(var(--brand-rgb), 0.12); border-color: rgba(var(--brand-rgb), 0.4); color: var(--brand-light); }
+}
+.lang-flag { font-size: 16px; }
+.color-row { display: flex; align-items: center; gap: $gap-md; margin-bottom: $gap-sm; }
+.color-preview { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; border: 2px solid var(--border); }
+.hue-slider {
+  flex: 1; height: 6px; -webkit-appearance: none; appearance: none;
+  background: linear-gradient(to right, hsl(0,80%,52%), hsl(60,80%,52%), hsl(120,80%,52%), hsl(180,80%,52%), hsl(240,80%,52%), hsl(300,80%,52%), hsl(360,80%,52%));
+  border-radius: 3px; cursor: pointer;
+  &::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 2px solid rgba(0,0,0,0.2); box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+}
+.hue-value { font-size: 12px; color: var(--text-3); font-family: 'Space Grotesk', sans-serif; min-width: 36px; }
+.color-presets { display: flex; gap: 8px; flex-wrap: wrap; }
+.preset-dot { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; transition: transform 0.15s; &:hover { transform: scale(1.2); border-color: rgba(255,255,255,0.5); } }
 </style>

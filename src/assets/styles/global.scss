@@ -569,6 +569,13 @@ input, textarea, select { font-family: inherit; outline: none; }
   50%       { transform: scale(1.14); opacity: 1; }
 }
 
+@keyframes bubble-float {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(4px); }
+  20%  { opacity: 1; transform: translateX(-50%) translateY(-8px); }
+  70%  { opacity: 1; transform: translateX(-50%) translateY(-16px); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-24px); }
+}
+
 @keyframes glow-pulse {
   0%, 100% { opacity: 0.4; }
   50%       { opacity: 1; }

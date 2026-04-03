@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Sidebar from './Sidebar.vue'
 import SvgIcon from '../common/SvgIcon.vue'
@@ -8,6 +8,7 @@ import { useUserStore } from '../../stores/user'
 const userStore = useUserStore()
 const route = useRoute()
 const router = useRouter()
+const showImport = ref(false)
 
 onMounted(async () => {
   if (userStore.isLoggedIn && !userStore.info) {
@@ -22,14 +23,23 @@ onMounted(async () => {
 })
 
 const mobileNav = [
-  { path: '/',        icon: 'dashboard', label: '概览' },
-  { path: '/shop',    icon: 'shop',      label: '订阅' },
-  { path: '/nodes',   icon: 'server',    label: '节点' },
-  { path: '/settings',icon: 'settings',  label: '设置' },
+  { path: '/',        icon: 'dashboard', label: '概览', action: 'navigate' },
+  { path: '/shop',    icon: 'shop',      label: '订阅', action: 'navigate' },
+  { path: 'import',   icon: 'qrcode',    label: '导入', action: 'import' },
+  { path: '/settings',icon: 'settings',  label: '设置', action: 'navigate' },
 ]
 
 function isActive(path: string) {
+  if (path === 'import') return false
   return path === '/' ? route.path === '/' : route.path.startsWith(path)
+}
+
+function handleTabClick(item: typeof mobileNav[0]) {
+  if (item.action === 'import') {
+    showImport.value = true
+  } else {
+    router.push(item.path)
+  }
 }
 </script>
 
@@ -50,13 +60,57 @@ function isActive(path: string) {
         :key="item.path"
         href="javascript:void(0)"
         :class="['tab-item', { active: isActive(item.path) }]"
-        @click="router.push(item.path)"
+        @click="handleTabClick(item)"
       >
         <SvgIcon :name="item.icon" :size="20" />
         <span>{{ item.label }}</span>
       </a>
     </nav>
   </div>
+
+  <!-- Import Modal -->
+  <teleport to="body">
+    <transition name="fade">
+      <div v-if="showImport" class="import-modal" @click.self="showImport = false">
+        <div class="import-sheet">
+          <p class="import-title">导入订阅</p>
+          <div class="import-apps">
+            <a
+              :href="`clash://install-config?url=${encodeURIComponent(userStore.subscribe?.subscribe_url || '')}`"
+              class="import-app-btn"
+              @click="showImport = false"
+            >
+              <div class="import-app-icon" style="background: linear-gradient(135deg, #2563eb, #7c3aed);">
+                <span>⚡</span>
+              </div>
+              <span>Clash</span>
+            </a>
+            <a
+              :href="`shadowrocket://add/sub?uri=${encodeURIComponent(userStore.subscribe?.subscribe_url || '')}`"
+              class="import-app-btn"
+              @click="showImport = false"
+            >
+              <div class="import-app-icon" style="background: linear-gradient(135deg, #e11d48, #ea580c);">
+                <span>🚀</span>
+              </div>
+              <span>Shadowrocket</span>
+            </a>
+            <a
+              :href="userStore.subscribe?.subscribe_url || ''"
+              class="import-app-btn"
+              @click="showImport = false"
+            >
+              <div class="import-app-icon" style="background: linear-gradient(135deg, #059669, #0891b2);">
+                <span>V</span>
+              </div>
+              <span>v2rayNG</span>
+            </a>
+          </div>
+          <button class="import-cancel" @click="showImport = false">取消</button>
+        </div>
+      </div>
+    </transition>
+  </teleport>
 </template>
 
 <style lang="scss" scoped>
@@ -125,5 +179,43 @@ function isActive(path: string) {
   }
 
   span { font-family: 'Space Grotesk', sans-serif; letter-spacing: 0.2px; }
+}
+
+// Import modal styles (not scoped to allow Teleport to body)
+</style>
+
+<style lang="scss">
+.import-modal {
+  position: fixed; inset: 0; z-index: 300;
+  display: flex; align-items: flex-end;
+  background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+}
+.import-sheet {
+  width: 100%; background: var(--bg-1);
+  border-radius: 20px 20px 0 0;
+  border-top: 1px solid var(--border);
+  padding: 20px 20px 40px;
+}
+.import-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; color: var(--text-1); }
+.import-apps { display: flex; flex-direction: column; gap: 10px; }
+.import-app-btn {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; border-radius: 12px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  color: var(--text-1); font-size: 14px; font-weight: 500;
+  text-decoration: none; cursor: pointer;
+  transition: all 0.15s;
+  &:hover { border-color: rgba(var(--brand-rgb), 0.3); }
+}
+.import-app-icon {
+  width: 40px; height: 40px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+}
+.import-cancel {
+  margin-top: 12px; width: 100%; padding: 14px;
+  border-radius: 12px; background: var(--bg-elevated);
+  border: 1px solid var(--border); color: var(--text-2);
+  font-size: 14px; font-weight: 500; cursor: pointer;
 }
 </style>
