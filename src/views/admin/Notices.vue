@@ -73,11 +73,12 @@ function openAdd() {
 
 function openEdit(n: Notice) {
   editingId.value = n.id
+  const tagsArr = Array.isArray(n.tags) ? n.tags : (n.tags ? String(n.tags).split(',') : [])
   form.value = {
     title: n.title,
-    content: n.content,
-    img_url: n.img_url,
-    tags: n.tags.join(', '),
+    content: n.content || '',
+    img_url: n.img_url || '',
+    tags: tagsArr.join(', '),
   }
   showPreview.value = false
   showModal.value = true
@@ -160,7 +161,7 @@ function formatDate(ts: number) {
         <div class="notice-meta">
           <span class="notice-date">{{ formatDate(n.created_at) }}</span>
           <div class="tag-list">
-            <span v-for="tag in n.tags" :key="tag" class="or-tag info">{{ tag }}</span>
+            <span v-for="tag in (Array.isArray(n.tags) ? n.tags : [])" :key="tag" class="or-tag info">{{ tag }}</span>
           </div>
         </div>
 

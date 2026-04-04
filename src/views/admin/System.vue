@@ -3,9 +3,9 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { adminSystemApi } from '../../api/admin'
 
 interface SystemStatus {
-  schedule_check: boolean
-  horizon_check: boolean
-  last_check_at: number
+  schedule_check: boolean   // mapped from API 'schedule'
+  horizon_check: boolean    // mapped from API 'horizon'
+  last_check_at: number     // mapped from API 'schedule_last_runtime'
 }
 interface QueueStats {
   failedJobs: number
@@ -35,7 +35,13 @@ async function loadStatus() {
       adminSystemApi.getQueueStats()    as any,
       adminSystemApi.getQueueWorkload() as any,
     ])
-    systemStatus.value = s?.data ?? null
+    // Map API field names → component field names
+    const raw = s?.data
+    systemStatus.value = raw ? {
+      schedule_check: raw.schedule ?? raw.schedule_check ?? false,
+      horizon_check:  raw.horizon  ?? raw.horizon_check  ?? false,
+      last_check_at:  raw.schedule_last_runtime ?? raw.last_check_at ?? 0,
+    } : null
     queueStats.value   = q?.data ?? null
     const rawWork = w?.data
     if (Array.isArray(rawWork)) workload.value = rawWork
